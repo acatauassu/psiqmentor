@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: psiqmentor-v3
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn api_server:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: ANTHROPIC_API_KEY
+        sync: false  # Você define o valor manualmente no painel do Render
+      - key: PYTHON_VERSION
+        value: 3.11.9
