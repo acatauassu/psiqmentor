@@ -13,19 +13,23 @@ V4 - Mudanças:
 """
 
 import csv
+import hashlib
+import hmac
 import io
 import json
 import os
 import random
+import secrets
+import time
 import uuid
 from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from anthropic import Anthropic
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
 # ─── Load DSM-5 Knowledge Base ───────────────────────────────────────────────
@@ -618,6 +622,22 @@ sessions: dict = {}
 # Use /data on Render (persistent disk), fallback to local ./data
 SURVEY_DIR = Path("/data") if Path("/data").exists() and os.access("/data", os.W_OK) else Path(__file__).parent / "data"
 SURVEY_FILE = SURVEY_DIR / "surveys.json"
+SESSION_COUNT_FILE = SURVEY_DIR / "session_count.json"
+
+# ─── Admin Config ────────────────────────────────────────────────────────────
+ADMIN_USER = os.environ.get("ADMIN_USER", "admin")
+ADMIN_PASS = os.environ.get("ADMIN_PASS", "Mestrado2026")
+ADMIN_TOKENS: dict = {}  # token -> expiry timestamp
+
+
+def verify_admin_token(token: str) -> bool:
+    """Verify admin token is valid and not expired."""
+    if not token or token not in ADMIN_TOKENS:
+        return False
+    if time.time() > ADMIN_TOKENS[token]:
+        del ADMIN_TOKENS[token]
+        return False
+    return True
 
 
 # ─── Request/Response Models ────────────────────────────────────────────────
@@ -633,6 +653,11 @@ class FinishRequest(BaseModel):
 class SurveyRequest(BaseModel):
     session_id: str
     responses: dict  # Q1-Q10 (int 1-5), Q11-Q12 (str)
+
+
+class AdminLoginRequest(BaseModel):
+    username: str
+    password: str
 
 
 # ─── Endpoints ──────────────────────────────────────────────────────────────
@@ -654,6 +679,17 @@ def start_session():
         "started_at": datetime.now().isoformat(),
         "finished": False,
     }
+
+    # Increment persistent session counter
+    SURVEY_DIR.mkdir(parents=True, exist_ok=True)
+    count_data = {"total": 0}
+    if SESSION_COUNT_FILE.exists():
+        try:
+            count_data = json.loads(SESSION_COUNT_FILE.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            count_data = {"total": 0}
+    count_data["total"] += 1
+    SESSION_COUNT_FILE.write_text(json.dumps(count_data), encoding="utf-8")
 
     return {
         "session_id": session_id,
@@ -869,13 +905,123 @@ def export_surveys():
     )
 
 
+# ─── Admin Endpoints ─────────────────────────────────────────────────────────
+@app.post("/api/admin/login")
+def admin_login(req: AdminLoginRequest):
+    """Authenticate admin user and return a session token."""
+    if req.username != ADMIN_USER or req.password != ADMIN_PASS:
+        raise HTTPException(status_code=401, detail="Credenciais inválidas")
+
+    token = secrets.token_hex(32)
+    ADMIN_TOKENS[token] = time.time() + 7200  # 2 hours
+    return {"token": token, "expires_in": 7200}
+
+
+@app.get("/api/admin/dashboard")
+def admin_dashboard(token: str = Query(...)):
+    """Return system health, survey stats, and session info."""
+    if not verify_admin_token(token):
+        raise HTTPException(status_code=401, detail="Token inválido ou expirado")
+
+    has_key = bool(os.environ.get("ANTHROPIC_API_KEY"))
+
+    # Session counter
+    total_sessions = 0
+    if SESSION_COUNT_FILE.exists():
+        try:
+            total_sessions = json.loads(SESSION_COUNT_FILE.read_text(encoding="utf-8")).get("total", 0)
+        except (json.JSONDecodeError, OSError):
+            total_sessions = 0
+
+    # Survey stats
+    surveys = []
+    if SURVEY_FILE.exists():
+        try:
+            surveys = json.loads(SURVEY_FILE.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            surveys = []
+
+    transtorno_counts = {}
+    for s in surveys:
+        t = s.get("transtorno", "unknown")
+        transtorno_counts[t] = transtorno_counts.get(t, 0) + 1
+
+    return {
+        "health": {
+            "version": "v4.2",
+            "anthropic_key_set": has_key,
+            "active_sessions": len(sessions),
+            "total_sessions": total_sessions,
+        },
+        "surveys": {
+            "total": len(surveys),
+            "by_transtorno": transtorno_counts,
+        },
+    }
+
+
+@app.post("/api/admin/test-anthropic")
+def admin_test_anthropic(token: str = Query(...)):
+    """Test Anthropic API connectivity with a minimal call."""
+    if not verify_admin_token(token):
+        raise HTTPException(status_code=401, detail="Token inválido ou expirado")
+
+    start_time = time.time()
+    try:
+        response = client.messages.create(
+            model="claude-haiku-4-5",
+            max_tokens=10,
+            messages=[{"role": "user", "content": "Olá"}],
+        )
+        elapsed = round((time.time() - start_time) * 1000)
+        return {
+            "status": "ok",
+            "response_time_ms": elapsed,
+            "model": "claude-haiku-4-5",
+            "message": response.content[0].text[:50],
+        }
+    except Exception as e:
+        elapsed = round((time.time() - start_time) * 1000)
+        return {
+            "status": "error",
+            "response_time_ms": elapsed,
+            "error": f"{type(e).__name__}: {str(e)}",
+        }
+
+
+@app.get("/api/admin/survey/data")
+def admin_survey_data(token: str = Query(...)):
+    """Return all survey responses as JSON."""
+    if not verify_admin_token(token):
+        raise HTTPException(status_code=401, detail="Token inválido ou expirado")
+
+    surveys = []
+    if SURVEY_FILE.exists():
+        try:
+            surveys = json.loads(SURVEY_FILE.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            surveys = []
+    return {"surveys": surveys}
+
+
+@app.post("/api/admin/survey/clear")
+def admin_survey_clear(token: str = Query(...)):
+    """Clear all survey data (for removing test data before real collection)."""
+    if not verify_admin_token(token):
+        raise HTTPException(status_code=401, detail="Token inválido ou expirado")
+
+    if SURVEY_FILE.exists():
+        SURVEY_FILE.unlink()
+    return {"status": "ok", "message": "Dados de pesquisa removidos com sucesso"}
+
+
 # ─── Health Check ───────────────────────────────────────────────────────────
 @app.get("/api/health")
 def health():
     has_key = bool(os.environ.get("ANTHROPIC_API_KEY"))
     return {
         "status": "ok",
-        "version": "v4.1",
+        "version": "v4.2",
         "active_sessions": len(sessions),
         "anthropic_key_set": has_key,
     }
