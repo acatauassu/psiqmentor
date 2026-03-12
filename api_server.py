@@ -676,13 +676,19 @@ def chat(req: ChatRequest):
     session["messages"].append({"role": "user", "content": req.message})
 
     # 1. Get patient response from LLM
-    patient_response = client.messages.create(
-        model="claude-sonnet-4-6-20250217",
-        max_tokens=500,
-        system=session["system_prompt"],
-        messages=session["messages"],
-    )
-    assistant_text = patient_response.content[0].text
+    try:
+        patient_response = client.messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=500,
+            system=session["system_prompt"],
+            messages=session["messages"],
+        )
+        assistant_text = patient_response.content[0].text
+    except Exception as e:
+        # Remove the message we just added so session stays clean
+        session["messages"].pop()
+        raise HTTPException(status_code=502, detail=f"Erro na API Anthropic: {type(e).__name__}: {str(e)}")
+
 
     # Add assistant response to history
     session["messages"].append({"role": "assistant", "content": assistant_text})
@@ -701,7 +707,7 @@ def chat(req: ChatRequest):
 
     try:
         tracking_response = client.messages.create(
-            model="claude-haiku-4-5-20251001",
+            model="claude-haiku-4-5",
             max_tokens=300,
             system=session["tracker_prompt"],
             messages=tracking_messages,
@@ -866,7 +872,13 @@ def export_surveys():
 # ─── Health Check ───────────────────────────────────────────────────────────
 @app.get("/api/health")
 def health():
-    return {"status": "ok", "version": "v4", "active_sessions": len(sessions)}
+    has_key = bool(os.environ.get("ANTHROPIC_API_KEY"))
+    return {
+        "status": "ok",
+        "version": "v4.1",
+        "active_sessions": len(sessions),
+        "anthropic_key_set": has_key,
+    }
 
 
 # ─── Serve Frontend ─────────────────────────────────────────────────────────
@@ -897,7 +909,7 @@ def _assess_interview_quality(messages: list) -> dict:
 
     try:
         response = client.messages.create(
-            model="claude-sonnet-4-6-20250217",
+            model="claude-sonnet-4-6",
             max_tokens=1500,
             system=QUALITY_ASSESSMENT_PROMPT,
             messages=[{"role": "user", "content": f"TRANSCRIÇÃO DA ENTREVISTA:\n\n{conversation_text}"}],
