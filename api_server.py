@@ -1,15 +1,19 @@
 #!/usr/bin/env python3
 """
-PsiqMentor V3 - Backend API (versão para deploy no Render)
-Agente simulador de paciente com Transtorno de Ansiedade para treinamento médico.
+PsiqMentor V4 - Backend API
+Agente simulador de pacientes com Transtornos de Ansiedade para treinamento médico.
 Mestrado em Ensino em Saúde - CESUPA
 
-Para rodar localmente:
-    pip install -r requirements.txt
-    export ANTHROPIC_API_KEY="sua-chave-aqui"
-    python api_server.py
+V4 - Mudanças:
+- 9 pacientes cobrindo todos os transtornos de ansiedade do DSM-5-TR
+- Prompts dinâmicos por transtorno (sistema e tracker)
+- Remoção de identificação do aluno
+- Endpoints de pesquisa de satisfação (survey)
+- Critério EXAMES para transtornos por substância e condição médica
 """
 
+import csv
+import io
 import json
 import os
 import random
@@ -21,8 +25,7 @@ from zoneinfo import ZoneInfo
 from anthropic import Anthropic
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import HTMLResponse, StreamingResponse
 from pydantic import BaseModel
 
 # ─── Load DSM-5 Knowledge Base ───────────────────────────────────────────────
@@ -30,10 +33,76 @@ DSM5_PATH = Path(__file__).parent / "dsm5_ansiedade.json"
 with open(DSM5_PATH, "r", encoding="utf-8") as f:
     DSM5_DATA = json.load(f)
 
-TAG_CRITERIA = DSM5_DATA["transtornos_de_ansiedade"]["TAG"]
+# ─── Supplementary DSM-5 criteria for disorders not in the JSON ──────────────
+DSM5_DATA["transtornos_de_ansiedade"]["ansiedade_separacao"] = {
+    "nome_completo": "Transtorno de Ansiedade de Separação",
+    "codigo_cid": "F93.0",
+    "criterios": {
+        "A": {
+            "descricao": "Medo ou ansiedade impróprios e excessivos em relação ao nível de desenvolvimento, envolvendo separação daqueles a quem o indivíduo é apegado, evidenciado por três (ou mais) dos seguintes:",
+            "sintomas": {
+                "A1": "Sofrimento excessivo e recorrente ante a ocorrência ou previsão de afastamento de casa ou de figuras importantes de apego.",
+                "A2": "Preocupação persistente e excessiva acerca da possível perda das principais figuras de apego ou de perigos para elas (doença, ferimentos, catástrofes, morte).",
+                "A3": "Preocupação persistente e excessiva de que um evento indesejado leve à separação de uma figura importante de apego (perder-se, ser sequestrado, ter acidente, ficar doente).",
+                "A4": "Relutância persistente ou recusa a sair de casa, ir para a escola, trabalho ou qualquer outro lugar por causa do medo de separação.",
+                "A5": "Temor persistente e excessivo ou relutância em ficar sozinho ou sem as principais figuras de apego em casa ou em outros contextos.",
+                "A6": "Relutância ou recusa persistente em dormir fora de casa ou em dormir sem estar perto de uma figura importante de apego.",
+                "A7": "Pesadelos repetidos envolvendo o tema de separação.",
+                "A8": "Queixas repetidas de sintomas somáticos quando a separação das figuras importantes de apego ocorre ou é prevista."
+            },
+            "minimo_necessario": 3
+        },
+        "B": "O medo, a ansiedade ou a esquiva é persistente, durando pelo menos quatro semanas em crianças e adolescentes e geralmente seis meses ou mais em adultos.",
+        "C": "A perturbação causa sofrimento clinicamente significativo ou prejuízo no funcionamento social, profissional ou em outras áreas importantes da vida do indivíduo.",
+        "D": "A perturbação não é mais bem explicada por outro transtorno mental."
+    }
+}
 
-# ─── Patient Profiles (random selection per session) ─────────────────────────
+DSM5_DATA["transtornos_de_ansiedade"]["mutismo_seletivo"] = {
+    "nome_completo": "Mutismo Seletivo",
+    "codigo_cid": "F94.0",
+    "criterios": {
+        "A": "Fracasso persistente para falar em situações sociais específicas nas quais existe expectativa para tal (p. ex., na escola), apesar de falar em outras situações.",
+        "B": "A perturbação interfere na realização educacional ou profissional ou na comunicação social.",
+        "C": "A duração mínima da perturbação é um mês (não se limita ao primeiro mês de escola).",
+        "D": "O fracasso para falar não se deve a falta de conhecimento ou de conforto com o idioma exigido na situação social.",
+        "E": "A perturbação não é mais bem explicada por um transtorno da comunicação e não ocorre exclusivamente durante o curso de TEA, esquizofrenia ou outro transtorno psicótico."
+    }
+}
+
+DSM5_DATA["transtornos_de_ansiedade"]["ansiedade_substancia"] = {
+    "nome_completo": "Transtorno de Ansiedade Induzido por Substância/Medicamento",
+    "codigo_cid": "F19.980",
+    "criterios": {
+        "A": "Ataques de pânico ou ansiedade são predominantes no quadro clínico.",
+        "B": {
+            "descricao": "Existem evidências a partir da história, do exame físico ou de achados laboratoriais de ambos:",
+            "B1": "Os sintomas do Critério A se desenvolveram durante ou logo após a intoxicação ou abstinência de substância, ou após exposição a um medicamento.",
+            "B2": "A substância/medicamento envolvido é capaz de produzir os sintomas do Critério A."
+        },
+        "C": "A perturbação não é mais bem explicada por um transtorno de ansiedade não induzido por substância/medicamento.",
+        "D": "A perturbação não ocorre exclusivamente durante o curso de delirium.",
+        "E": "A perturbação causa sofrimento clinicamente significativo ou prejuízo no funcionamento social, profissional ou em outras áreas importantes."
+    },
+    "substancias_relevantes": ["cafeína", "álcool", "cannabis", "estimulantes", "descongestionantes", "broncodilatadores", "corticosteroides"]
+}
+
+DSM5_DATA["transtornos_de_ansiedade"]["ansiedade_medica"] = {
+    "nome_completo": "Transtorno de Ansiedade Devido a Outra Condição Médica",
+    "codigo_cid": "F06.4",
+    "criterios": {
+        "A": "Ataques de pânico ou ansiedade são predominantes no quadro clínico.",
+        "B": "Há evidências a partir da história, do exame físico ou de achados laboratoriais de que a perturbação é a consequência fisiopatológica direta de outra condição médica.",
+        "C": "A perturbação não é mais bem explicada por outro transtorno mental.",
+        "D": "A perturbação não ocorre exclusivamente durante o curso de delirium.",
+        "E": "A perturbação causa sofrimento clinicamente significativo ou prejuízo no funcionamento social, profissional ou em outras áreas importantes."
+    },
+    "condicoes_medicas_comuns": ["hipertireoidismo", "feocromocitoma", "hipoglicemia", "doenças cardiovasculares", "doenças pulmonares", "doenças vestibulares"]
+}
+
+# ─── Patient Profiles (1 per DSM-5-TR anxiety disorder) ─────────────────────
 PATIENT_PROFILES = [
+    # 1. TAG
     {
         "nome": "Márcia",
         "idade": 34,
@@ -41,67 +110,205 @@ PATIENT_PROFILES = [
         "ocupacao": "professora de ensino fundamental",
         "estado_civil": "casada, dois filhos",
         "contexto": "Nos últimos 8 meses, Márcia tem apresentado preocupação constante com o desempenho dos filhos na escola, com as finanças da família e com a possibilidade de perder o emprego, apesar de ter estabilidade no cargo. Relata dificuldade em dormir (acorda várias vezes à noite com pensamentos sobre o futuro), tensão muscular frequente nos ombros e pescoço, fadiga constante mesmo após descanso, e irritabilidade que tem afetado seu casamento. Tem dificuldade de se concentrar nas aulas que ministra. Nega uso de substâncias.",
-        "sintomas_presentes": ["C1", "C2", "C3", "C4", "C5", "C6"],
-        "criterios_satisfeitos": ["A", "B", "C", "D"],
-        "diagnostico_real": "Transtorno de Ansiedade Generalizada (F41.1)"
+        "transtorno": "TAG",
+        "criterios_key": "TAG",
+        "diagnostico_real": "Transtorno de Ansiedade Generalizada (F41.1)",
     },
+    # 2. Transtorno de Pânico
     {
-        "nome": "Roberto",
-        "idade": 42,
+        "nome": "Fernando",
+        "idade": 28,
         "genero": "masculino",
-        "ocupacao": "gerente de banco",
-        "estado_civil": "divorciado, um filho de 10 anos",
-        "contexto": "Roberto procura atendimento por queixa de 'nervosismo constante' há cerca de 7 meses. Relata preocupação excessiva com praticamente tudo: o desempenho no trabalho, a saúde dos pais idosos, a educação do filho, e até questões menores como atrasos no trânsito. Sente que não consegue 'desligar' a cabeça. Apresenta inquietação motora (fica balançando as pernas, não consegue ficar sentado por muito tempo), tensão muscular (bruxismo noturno diagnosticado pelo dentista), fatigabilidade e dificuldade de concentração. Relata consumo de 4-5 cafés por dia. Nega uso de outras substâncias.",
-        "sintomas_presentes": ["C1", "C2", "C3", "C5"],
-        "criterios_satisfeitos": ["A", "B", "C", "D"],
-        "diagnostico_real": "Transtorno de Ansiedade Generalizada (F41.1)"
+        "ocupacao": "engenheiro de software",
+        "estado_civil": "solteiro, mora com a namorada",
+        "contexto": "Fernando procura atendimento após 4 meses de ataques recorrentes e inesperados. O primeiro episódio ocorreu no metrô: sentiu palpitação intensa, falta de ar, formigamento nas mãos, sudorese, e um medo avassalador de que ia morrer. O episódio durou cerca de 10 minutos e alcançou o pico em poucos minutos. Desde então, teve pelo menos mais 6 episódios semelhantes, em lugares variados (em casa, no trabalho, no supermercado), sem gatilho aparente. Evita usar o metrô desde o primeiro episódio. Vive em apreensão constante, com medo de quando será o próximo ataque. Tem ido ao pronto-socorro achando que está tendo infarto, mas os exames cardíacos dão normais. Mudou sua rotina — evita ir a lugares onde 'não possa sair rápido'. Nega uso de substâncias além de café pela manhã.",
+        "transtorno": "panico",
+        "criterios_key": "transtorno_de_panico",
+        "diagnostico_real": "Transtorno de Pânico (F41.0)",
     },
+    # 3. Ansiedade Social
     {
-        "nome": "Camila",
-        "idade": 26,
+        "nome": "Beatriz",
+        "idade": 22,
         "genero": "feminino",
-        "ocupacao": "estudante de pós-graduação em direito",
-        "estado_civil": "solteira, mora sozinha",
-        "contexto": "Camila relata que sempre foi 'preocupada', mas nos últimos 6 meses a situação piorou significativamente após assumir um estágio em um escritório exigente. Preocupa-se com o desempenho acadêmico, com a possibilidade de não passar na OAB, com a opinião dos supervisores e com questões financeiras. Sente-se constantemente 'no limite', com nervos à flor da pele. Tem apresentado insônia inicial (demora 2-3 horas para dormir por causa dos pensamentos), irritabilidade marcada (tem se desentendido com amigos), e tensão muscular frequente nas costas. Relata episódios de diarreia antes de situações estressantes. Nega uso de substâncias além de chá de camomila ocasional.",
-        "sintomas_presentes": ["C1", "C4", "C5", "C6"],
-        "criterios_satisfeitos": ["A", "B", "C", "D"],
-        "diagnostico_real": "Transtorno de Ansiedade Generalizada (F41.1)"
-    }
+        "ocupacao": "estudante de comunicação social",
+        "estado_civil": "solteira, mora com os pais",
+        "contexto": "Beatriz relata medo intenso de situações em que pode ser observada ou avaliada por outros. Sempre foi considerada 'tímida', mas o quadro piorou significativamente ao entrar na faculdade há 3 anos. Tem pavor de apresentações de seminários — quando precisa apresentar, sente taquicardia, tremores, voz trêmula, rosto vermelho e sensação de que todos estão julgando. Evita comer na frente de colegas (só almoça se estiver sozinha ou com uma amiga próxima). Não vai a festas da faculdade. Recusou um estágio porque envolvia reuniões de equipe. Sente que é 'incompetente' e que os outros vão perceber. Chora com frequência pensando que não vai conseguir se formar. Nega uso de substâncias.",
+        "transtorno": "ansiedade_social",
+        "criterios_key": "transtorno_de_ansiedade_social",
+        "diagnostico_real": "Transtorno de Ansiedade Social (F40.10)",
+    },
+    # 4. Fobia Específica
+    {
+        "nome": "Lucas",
+        "idade": 35,
+        "genero": "masculino",
+        "ocupacao": "contador",
+        "estado_civil": "casado, sem filhos",
+        "contexto": "Lucas procura atendimento porque precisa fazer exames de sangue de rotina há mais de 2 anos e não consegue. Desde criança, tem medo intenso de sangue, agulhas e qualquer procedimento médico que envolva perfuração. Já desmaiou durante uma coleta de sangue aos 16 anos — sentiu tontura, náusea, visão escurecendo, e acordou no chão. Desde então, adia qualquer exame que envolva agulhas. Não consegue assistir cenas de filmes com sangue sem passar mal. A esposa está preocupada porque ele se recusa a ir ao médico. Até curativos com sangue o incomodam. Sabe que o medo é 'exagerado', mas não consegue controlar. A situação está afetando seu casamento e sua saúde. Nega qualquer outro medo intenso. Nega uso de substâncias.",
+        "transtorno": "fobia_especifica",
+        "criterios_key": "fobia_especifica",
+        "diagnostico_real": "Fobia Específica — tipo sangue-injeção-ferimentos (F40.230)",
+    },
+    # 5. Agorafobia
+    {
+        "nome": "Helena",
+        "idade": 40,
+        "genero": "feminino",
+        "ocupacao": "dona de casa",
+        "estado_civil": "casada, três filhos adolescentes",
+        "contexto": "Helena é trazida à consulta pelo marido. Nos últimos 2 anos, tem restringido progressivamente suas atividades fora de casa. Começou evitando ônibus e metrô — sentia pânico de ficar 'presa'. Depois parou de ir a supermercados lotados, evita filas, shopping centers e cinema. Há 6 meses, praticamente não sai de casa sozinha. Se precisa ir à padaria da esquina, liga para o marido ou um dos filhos para acompanhá-la. Se forçada a sair sozinha, sente falta de ar, coração acelerado, tontura e uma sensação de que algo terrível vai acontecer. O medo é de que não consiga 'escapar' ou que não tenha ajuda caso passe mal. Parou de ir às reuniões escolares dos filhos, não visita mais a mãe que mora em outro bairro. Sente-se 'prisioneira' em casa. Nega uso de substâncias.",
+        "transtorno": "agorafobia",
+        "criterios_key": "agorafobia",
+        "diagnostico_real": "Agorafobia (F40.00)",
+    },
+    # 6. Ansiedade de Separação
+    {
+        "nome": "Rafael",
+        "idade": 30,
+        "genero": "masculino",
+        "ocupacao": "analista financeiro",
+        "estado_civil": "casado há 5 anos",
+        "contexto": "Rafael procura atendimento por queixa de 'ansiedade que está atrapalhando o casamento'. Há 8 meses, quando sua esposa sofreu um acidente de carro (sem gravidade, apenas batida leve), Rafael passou a apresentar medo excessivo de se separar dela. Liga para a esposa de 6 a 8 vezes por dia para saber se está bem. Tem dificuldade extrema quando precisa viajar a trabalho — na última viagem, não conseguiu dormir e quase pegou um voo de volta no mesmo dia. Tem pesadelos recorrentes sobre a esposa sofrendo acidentes graves ou morrendo. Antes do acidente, já era 'um pouco preocupado' mas funcionava normalmente. Agora recusou uma promoção que exigiria viagens mensais. Quando a esposa sai à noite com amigas, fica inquieto, com taquicardia, e não consegue se concentrar em nada até ela voltar. Apresenta dor de estômago frequente nos dias em que sabe que vai se separar dela. Nega uso de substâncias.",
+        "transtorno": "ansiedade_separacao",
+        "criterios_key": "ansiedade_separacao",
+        "diagnostico_real": "Transtorno de Ansiedade de Separação (F93.0)",
+    },
+    # 7. Mutismo Seletivo
+    {
+        "nome": "Sofia",
+        "idade": 8,
+        "genero": "feminino",
+        "ocupacao": "estudante do 3º ano do ensino fundamental",
+        "estado_civil": "criança, mora com os pais e um irmão de 5 anos",
+        "contexto": "Sofia é trazida à consulta pela mãe, Dona Lúcia (38 anos, secretária). A mãe relata que Sofia 'não fala na escola' há cerca de 2 anos. Em casa, Sofia é comunicativa, brinca normalmente, conversa com os pais e o irmão, fala ao telefone com os avós. Porém, desde o 1º ano, não fala com professores, colegas nem funcionários da escola. Comunica-se na escola por gestos — aponta, acena com a cabeça, às vezes escreve bilhetes. As professoras já tentaram de tudo: incentivos, premiações, conversas individuais. Sofia simplesmente 'trava'. A mãe conta que em festas de aniversário de colegas, Sofia também não fala — fica perto da mãe e brinca sozinha. No consultório médico anterior, Sofia não falou uma palavra com o pediatra. A mãe está preocupada com o desempenho escolar e com a socialização. Nega problemas de linguagem ou audição. Sofia fala português fluentemente em casa, com vocabulário adequado para a idade.",
+        "transtorno": "mutismo_seletivo",
+        "criterios_key": "mutismo_seletivo",
+        "diagnostico_real": "Mutismo Seletivo (F94.0)",
+    },
+    # 8. Ansiedade Induzida por Substância
+    {
+        "nome": "Jorge",
+        "idade": 50,
+        "genero": "masculino",
+        "ocupacao": "empresário, dono de uma rede de cafeterias",
+        "estado_civil": "casado, dois filhos adultos",
+        "contexto": "Jorge procura atendimento por queixa de 'nervosismo e insônia que não passam'. Há cerca de 3 meses, vem apresentando inquietação constante, sensação de 'coração disparado', tremores finos nas mãos, dificuldade para dormir (demora horas para pegar no sono), e sensação de estar 'ligado no 220' o tempo todo. Relata que o negócio está passando por uma fase de expansão e atribui tudo ao 'estresse do trabalho'. O que Jorge NÃO menciona espontaneamente: consome de 8 a 10 xícaras de café por dia (expresso forte), começou a usar um descongestionante nasal com pseudoefedrina diariamente há 2 meses por uma sinusite persistente, e nos últimos meses aumentou significativamente o consumo de álcool social (3-4 doses de whisky quase toda noite 'para relaxar', com períodos de abstinência matinal que coincidem com piora da ansiedade). Ele SÓ revelará esses detalhes se o estudante perguntar DIRETAMENTE e ESPECIFICAMENTE sobre uso de cafeína, medicamentos de venda livre/nasal, e consumo de álcool. Se perguntado genericamente 'usa alguma substância?', dirá 'não, doutor, nada disso'. Somente com perguntas específicas revelará cada substância.",
+        "transtorno": "ansiedade_substancia",
+        "criterios_key": "ansiedade_substancia",
+        "diagnostico_real": "Transtorno de Ansiedade Induzido por Substância/Medicamento (F15.980)",
+    },
+    # 9. Ansiedade Devida a Outra Condição Médica
+    {
+        "nome": "Dona Célia",
+        "idade": 58,
+        "genero": "feminino",
+        "ocupacao": "aposentada, ex-funcionária pública",
+        "estado_civil": "viúva há 3 anos, mora sozinha",
+        "contexto": "Dona Célia procura atendimento por queixa de 'nervosismo e agitação que começaram do nada'. Há cerca de 4 meses, vem apresentando nervosismo intenso, sensação de coração acelerado (taquicardia), tremores nas mãos, perda de peso (emagreceu 6 kg sem fazer dieta), intolerância ao calor (sente muito calor mesmo em temperaturas amenas, sua excessivamente), insônia, e aumento do trânsito intestinal. Atribui tudo à viuvez e à solidão. O que Dona Célia NÃO sabe: seus sintomas são causados por hipertireoidismo não diagnosticado. Ela não fez exames de sangue há mais de 2 anos. Se o estudante perguntar sobre sintomas físicos, ela os descreverá naturalmente (calor, tremor, perda de peso, intestino solto, coração acelerado). Mas ela NÃO associa esses sintomas a uma causa orgânica — acha que é 'ansiedade pela solidão'. O estudante precisa suspeitar de causa orgânica a partir do padrão de sintomas (taquicardia + perda de peso + intolerância ao calor + tremores) e mencionar a necessidade de exames laboratoriais (especialmente função tireoidiana). Nega uso de substâncias, não toma medicamentos.",
+        "transtorno": "ansiedade_medica",
+        "criterios_key": "ansiedade_medica",
+        "diagnostico_real": "Transtorno de Ansiedade Devido a Outra Condição Médica — Hipertireoidismo (F06.4)",
+    },
 ]
 
-# ─── System Prompt for the Patient Simulation ────────────────────────────────
+# ─── Mapping: transtorno key -> list of trackable criteria codes ─────────────
+CRITERIA_MAP = {
+    "TAG": ["A", "B", "C1", "C2", "C3", "C4", "C5", "C6", "D", "E", "F"],
+    "panico": ["A", "A1", "A2", "A3", "A4", "A5", "A6", "A7", "A8", "A9", "A10", "A11", "A12", "A13", "B", "C", "D"],
+    "ansiedade_social": ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"],
+    "fobia_especifica": ["A", "B", "C", "D", "E", "F", "G"],
+    "agorafobia": ["A", "B", "C", "D", "E", "F", "G", "H", "I"],
+    "ansiedade_separacao": ["A", "A1", "A2", "A3", "A4", "A5", "A6", "A7", "A8", "B", "C", "D"],
+    "mutismo_seletivo": ["A", "B", "C", "D", "E"],
+    "ansiedade_substancia": ["A", "B", "C", "D", "E", "EXAMES"],
+    "ansiedade_medica": ["A", "B", "C", "D", "E", "EXAMES"],
+}
+
+# Core criteria used for score calculation per disorder
+CORE_CRITERIA_MAP = {
+    "TAG": {"A", "B", "C1", "C2", "C3", "C4", "C5", "C6", "D", "E"},
+    "panico": {"A", "B", "C", "D"},
+    "ansiedade_social": {"A", "B", "C", "D", "E", "F", "G", "H", "I"},
+    "fobia_especifica": {"A", "B", "C", "D", "E", "F", "G"},
+    "agorafobia": {"A", "B", "C", "D", "E", "F", "G", "H", "I"},
+    "ansiedade_separacao": {"A", "B", "C", "D"},
+    "mutismo_seletivo": {"A", "B", "C", "D", "E"},
+    "ansiedade_substancia": {"A", "B", "C", "D", "E", "EXAMES"},
+    "ansiedade_medica": {"A", "B", "C", "D", "E", "EXAMES"},
+}
+
+
+# ─── Dynamic System Prompt Builder ──────────────────────────────────────────
 def build_system_prompt(profile: dict) -> str:
     now = datetime.now(ZoneInfo("America/Belem"))
-    meses = ["janeiro","fevereiro","março","abril","maio","junho",
-             "julho","agosto","setembro","outubro","novembro","dezembro"]
-    dias_semana = ["segunda-feira","terça-feira","quarta-feira","quinta-feira",
-                   "sexta-feira","sábado","domingo"]
-    data_formatada = f"{dias_semana[now.weekday()]}, {now.day} de {meses[now.month-1]} de {now.year}"
+    meses = [
+        "janeiro", "fevereiro", "março", "abril", "maio", "junho",
+        "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
+    ]
+    dias_semana = [
+        "segunda-feira", "terça-feira", "quarta-feira", "quinta-feira",
+        "sexta-feira", "sábado", "domingo",
+    ]
+    data_formatada = f"{dias_semana[now.weekday()]}, {now.day} de {meses[now.month - 1]} de {now.year}"
     hora_formatada = f"{now.hour}:{now.minute:02d}"
 
-    return f"""Você é um PACIENTE SIMULADO para treinamento de estudantes de Medicina em anamnese psiquiátrica.
+    transtorno = profile["transtorno"]
+    criterios_key = profile["criterios_key"]
+    dsm_entry = DSM5_DATA["transtornos_de_ansiedade"][criterios_key]
+    criterios_json = json.dumps(dsm_entry["criterios"], ensure_ascii=False, indent=2)
 
-## CONTEXTO TEMPORAL
-Hoje é {data_formatada}, aproximadamente {hora_formatada} (horário de Belém). Use esta informação para responder perguntas sobre data, dia da semana, mês ou horário de forma coerente.
-
-## SUA IDENTIDADE
+    # ── Base identity block ──────────────────────────────────────────────
+    identity_block = f"""## SUA IDENTIDADE
 - Nome: {profile['nome']}
 - Idade: {profile['idade']} anos
 - Gênero: {profile['genero']}
 - Ocupação: {profile['ocupacao']}
-- Estado civil: {profile['estado_civil']}
+- Estado civil: {profile['estado_civil']}"""
 
-## SEU QUADRO CLÍNICO (NUNCA REVELE DIRETAMENTE AO ALUNO)
-Você apresenta Transtorno de Ansiedade Generalizada (TAG) conforme os critérios do DSM-5-TR.
+    # ── Disorder-specific behaviour rules ────────────────────────────────
+    disorder_rules = ""
 
-Contexto da sua história:
-{profile['contexto']}
+    if transtorno == "mutismo_seletivo":
+        disorder_rules = """
+## DINÂMICA MÃE-CRIANÇA (REGRA ESPECIAL)
+Você está simulando DUAS pessoas nesta consulta:
+1. **Dona Lúcia** (mãe de Sofia, 38 anos, secretária) — que responde a maioria das perguntas do médico, descreve o comportamento da filha, fornece a história.
+2. **Sofia** (8 anos) — que está presente na sala, mas NÃO fala com o médico.
 
-## CRITÉRIOS DSM-5 QUE VOCÊ APRESENTA
-{json.dumps(TAG_CRITERIA['criterios'], ensure_ascii=False, indent=2)}
+### Regras de simulação:
+- Quando o médico faz perguntas gerais ou se dirige à mãe, Dona Lúcia responde normalmente, em linguagem coloquial de mãe preocupada.
+- Quando o médico tenta falar DIRETAMENTE com Sofia, descreva a reação dela em terceira pessoa entre colchetes, como: [Sofia olha para a mãe e não responde] ou [Sofia acena com a cabeça afirmativamente, mas não fala] ou [Sofia abaixa o olhar e se encolhe na cadeira].
+- Sofia pode eventualmente dar respostas MUITO curtas sussurradas para a MÃE (nunca para o médico), como: [Sofia sussurra para a mãe: "sim"] — e a mãe repassa.
+- Se o médico for especialmente gentil e paciente com Sofia, ela pode acenar ou apontar, mas não falar diretamente com ele.
+- A mãe pode dizer coisas como "Vai, filha, fala pro doutor..." mas Sofia não fala.
+- Dona Lúcia deve demonstrar frustração e preocupação materna ("Em casa ela fala pelos cotovelos, doutor, mas aqui ela trava...").
 
-Seus sintomas do Critério C presentes: {', '.join(profile['sintomas_presentes'])}
+### Início da consulta:
+Dona Lúcia cumprimenta o médico e diz algo como: "Boa tarde, doutor(a). Eu sou a Lúcia, mãe da Sofia. Viemos porque ela não fala na escola, e eu já não sei mais o que fazer..." [Sofia está sentada ao lado da mãe, olhando para o chão].
+"""
+    elif transtorno == "ansiedade_substancia":
+        disorder_rules = """
+## REGRAS ESPECIAIS PARA SUBSTÂNCIAS
+- Você NÃO associa seus sintomas ao uso de substâncias. Você acha que está com 'estresse do trabalho'.
+- Se o aluno perguntar genericamente sobre "drogas" ou "substâncias", responda: "Não, doutor, nada disso. Nunca usei droga na vida."
+- CAFEÍNA: Só revele se perguntar ESPECIFICAMENTE sobre café ou cafeína. Revele então que toma 8-10 cafés por dia ("É que eu tenho cafeteria, doutor, o café é ali na mão o dia todo...").
+- MEDICAMENTOS NASAIS: Só revele se perguntar ESPECIFICAMENTE sobre medicamentos de venda livre, spray nasal ou descongestionante. Revele então: "Ah, tem um spray nasal que uso faz uns 2 meses, pra sinusite. Comprei na farmácia, sem receita."
+- ÁLCOOL: Se perguntar "bebe?", pode minimizar inicialmente ("socialmente, doutor"). Só revele a real frequência se o aluno insistir ou perguntar especificamente sobre quantidade e frequência. Revele então: "Olha, nos últimos meses tenho tomado uns whisky à noite pra relaxar... umas 3-4 doses quase toda noite."
+- NÃO faça conexão entre as substâncias e seus sintomas. Essa é a descoberta que o aluno precisa fazer.
+"""
+    elif transtorno == "ansiedade_medica":
+        disorder_rules = """
+## REGRAS ESPECIAIS PARA CONDIÇÃO MÉDICA
+- Você NÃO sabe que tem hipertireoidismo. Você acha que sua ansiedade é por causa da viuvez e solidão.
+- Descreva os sintomas físicos NATURALMENTE quando perguntada (calor, tremor, perda de peso, intestino solto, taquicardia), mas NÃO os associe a uma doença orgânica. Diga coisas como: "Ando sentindo muito calor, mas acho que é da idade" ou "Emagreci, mas é porque perdi o apetite com a tristeza" ou "Meu coração dispara, deve ser dos nervos".
+- Se o aluno perguntar sobre exames recentes, diga que faz mais de 2 anos que não faz check-up.
+- Se o aluno mencionar tireoide ou pedir exames de sangue/TSH/T4, demonstre surpresa: "Tireoide, doutor(a)? Acha que pode ser isso? Nunca pensei nisso..."
+- NÃO sugira espontaneamente a possibilidade de causa orgânica. Essa é a descoberta que o aluno precisa fazer.
+"""
 
+    # ── Build common behaviour rules ─────────────────────────────────────
+    common_rules = """
 ## REGRAS DE COMPORTAMENTO
 
 1. **SEJA NATURAL**: Responda como um paciente real, com linguagem coloquial brasileira. NÃO use terminologia médica. Descreva seus sintomas com suas próprias palavras (ex: em vez de "fatigabilidade", diga "ando muito cansada, doutor, mesmo dormindo bastante não acordo descansada").
@@ -122,44 +329,239 @@ Seus sintomas do Critério C presentes: {', '.join(profile['sintomas_presentes']
 
 9. **COMPRIMENTO DAS RESPOSTAS**: Mantenha respostas curtas a moderadas (2-5 frases), como um paciente real faria. Não faça monólogos longos a menos que provocado por uma pergunta muito aberta e empática.
 
-10. **INÍCIO DA CONSULTA**: Na primeira mensagem (quando o aluno cumprimentar), apresente-se brevemente e diga algo como "Obrigada por me atender, doutor(a). Não tenho me sentido bem ultimamente..." e espere as perguntas.
+10. **NUNCA SAIA DO PAPEL DE PACIENTE**: Mesmo que o aluno faça perguntas estranhas, tente dar diagnósticos, ou fuja do contexto clínico, você deve SEMPRE responder como paciente. Nunca dê feedback, avaliações ou orientações ao aluno durante a conversa. Você é APENAS o paciente."""
 
-11. **NUNCA SAIA DO PAPEL DE PACIENTE**: Mesmo que o aluno faça perguntas estranhas, tente dar diagnósticos, ou fuja do contexto clínico, você deve SEMPRE responder como paciente. Nunca dê feedback, avaliações ou orientações ao aluno durante a conversa. Você é APENAS o paciente.
+    # ── Opening line rule (customized) ──────────────────────────────────
+    if transtorno == "mutismo_seletivo":
+        opening_rule = ""  # Opening is handled in disorder_rules
+    else:
+        opening_rule = f"""
+11. **INÍCIO DA CONSULTA**: Na primeira mensagem (quando o aluno cumprimentar), apresente-se brevemente e diga algo como "{'Obrigada' if profile['genero'] == 'feminino' else 'Obrigado'} por me atender, doutor(a). Não tenho me sentido bem ultimamente..." e espere as perguntas."""
+
+    # ── Assemble final prompt ────────────────────────────────────────────
+    return f"""Você é um PACIENTE SIMULADO para treinamento de estudantes de Medicina em anamnese psiquiátrica.
+
+## CONTEXTO TEMPORAL
+Hoje é {data_formatada}, aproximadamente {hora_formatada} (horário de Belém). Use esta informação para responder perguntas sobre data, dia da semana, mês ou horário de forma coerente.
+
+{identity_block}
+
+## SEU QUADRO CLÍNICO (NUNCA REVELE DIRETAMENTE AO ALUNO)
+Você apresenta: {dsm_entry['nome_completo']} ({dsm_entry['codigo_cid']}) conforme os critérios do DSM-5-TR.
+
+Contexto da sua história:
+{profile['contexto']}
+
+## CRITÉRIOS DSM-5 DO SEU TRANSTORNO
+{criterios_json}
+{disorder_rules}
+{common_rules}
+{opening_rule}
 
 LEMBRE-SE: Seu objetivo é treinar o aluno na coleta de dados e no raciocínio clínico. Seja um paciente realista e desafiador, mas cooperativo."""
 
 
-# ─── Criteria Tracking System Prompt (silent, backend only) ──────────────────
-TRACKER_SYSTEM_PROMPT = """Você é um sistema SILENCIOSO de rastreamento que analisa as perguntas de um estudante de Medicina durante uma anamnese psiquiátrica simulada.
+# ─── Dynamic Tracker Prompt Builder ─────────────────────────────────────────
+def build_tracker_prompt(profile: dict) -> str:
+    transtorno = profile["transtorno"]
+    criterios_key = profile["criterios_key"]
+    dsm_entry = DSM5_DATA["transtornos_de_ansiedade"][criterios_key]
+    nome_transtorno = dsm_entry["nome_completo"]
+    codigo_cid = dsm_entry["codigo_cid"]
 
-Seu papel é registrar se a ÚLTIMA PERGUNTA do aluno está investigando algum critério diagnóstico do DSM-5-TR para Transtorno de Ansiedade Generalizada (TAG - F41.1).
+    # Build criteria list from the DSM data
+    criteria_lines = []
+    criterios = dsm_entry["criterios"]
+    for code, value in criterios.items():
+        if isinstance(value, str):
+            criteria_lines.append(f"- {code}: {value}")
+        elif isinstance(value, dict):
+            desc = value.get("descricao", "")
+            criteria_lines.append(f"- {code}: {desc}")
+            # Include sub-items if present
+            sintomas = value.get("sintomas", {})
+            for sub_code, sub_val in sintomas.items():
+                if isinstance(sub_val, str):
+                    criteria_lines.append(f"  - {sub_code}: {sub_val}")
+                elif isinstance(sub_val, dict):
+                    criteria_lines.append(f"  - {sub_code}: {sub_val.get('descricao', '')}")
+            # Include B1/B2 style sub-items
+            for key in sorted(value.keys()):
+                if key.startswith("B") and key != "descricao" and key not in sintomas:
+                    criteria_lines.append(f"  - {key}: {value[key]}")
+            situacoes = value.get("situacoes", [])
+            for sit in situacoes:
+                criteria_lines.append(f"    - {sit}")
+
+    # Add EXAMES for substance/medical
+    if transtorno in ("ansiedade_substancia", "ansiedade_medica"):
+        criteria_lines.append("- EXAMES: O aluno menciona ou solicita exames laboratoriais, exames de imagem, ou encaminhamento para investigação complementar (ex: hemograma, função tireoidiana, toxicológico, exame de urina, etc.)")
+
+    # Always add RISCO and EEM
+    criteria_lines.append("- RISCO: Triagem de risco suicida/autolesão (perguntas sobre pensamentos de morte, ideação suicida, autolesão)")
+    criteria_lines.append("- EEM: Exame do Estado Mental (observação ou perguntas sobre: aparência, comportamento, humor, afeto, pensamento, sensopercepção, consciência, orientação)")
+
+    criteria_block = "\n".join(criteria_lines)
+
+    return f"""Você é um sistema SILENCIOSO de rastreamento que analisa as perguntas de um estudante de Medicina durante uma anamnese psiquiátrica simulada.
+
+Seu papel é registrar se a ÚLTIMA PERGUNTA do aluno está investigando algum critério diagnóstico do DSM-5-TR para {nome_transtorno} ({codigo_cid}).
 
 Os critérios são:
-- A: Ansiedade e preocupação excessivas, na maioria dos dias, por pelo menos 6 meses, sobre diversos eventos
-- B: Dificuldade em controlar a preocupação
-- C1: Inquietação / nervos à flor da pele
-- C2: Fatigabilidade
-- C3: Dificuldade de concentração / "brancos" na mente
-- C4: Irritabilidade
-- C5: Tensão muscular
-- C6: Perturbação do sono
-- D: Sofrimento/prejuízo funcional (trabalho, social, pessoal)
-- E: Exclusão de substâncias/condição médica
-- F: Exclusão de outro transtorno mental
-- RISCO: Triagem de risco suicida/autolesão
-- EEM: Exame do Estado Mental (aparência, comportamento, humor, afeto, pensamento, sensopercepção, consciência, orientação)
+{criteria_block}
 
 Responda APENAS com um JSON válido no formato:
-{
-  "criterios_investigados": ["lista de códigos dos critérios que a pergunta investiga, ex: A, C1, C5"],
+{{
+  "criterios_investigados": ["lista de códigos dos critérios que a pergunta investiga, ex: A, B, C"],
   "justificativa": "breve explicação"
-}
+}}
 
 Se a mensagem do aluno não investiga nenhum critério diagnóstico, retorne:
-{
+{{
   "criterios_investigados": [],
   "justificativa": "mensagem não relacionada à investigação diagnóstica"
-}"""
+}}"""
+
+
+# ─── Dynamic Criteria Descriptions Builder ──────────────────────────────────
+def build_criteria_descriptions(profile: dict) -> dict:
+    transtorno = profile["transtorno"]
+    criterios_key = profile["criterios_key"]
+    dsm_entry = DSM5_DATA["transtornos_de_ansiedade"][criterios_key]
+    criterios = dsm_entry["criterios"]
+    descriptions = {}
+
+    for code, value in criterios.items():
+        if isinstance(value, str):
+            descriptions[code] = value
+        elif isinstance(value, dict):
+            descriptions[code] = value.get("descricao", "")
+            sintomas = value.get("sintomas", {})
+            for sub_code, sub_val in sintomas.items():
+                if isinstance(sub_val, str):
+                    descriptions[sub_code] = sub_val
+                elif isinstance(sub_val, dict):
+                    descriptions[sub_code] = sub_val.get("descricao", "")
+            for key in sorted(value.keys()):
+                if key.startswith(("A", "B")) and key != "descricao" and key not in sintomas and len(key) > 1:
+                    descriptions[key] = value[key]
+
+    if transtorno in ("ansiedade_substancia", "ansiedade_medica"):
+        descriptions["EXAMES"] = "Solicitação ou menção a exames laboratoriais, exames de imagem ou encaminhamento para investigação complementar"
+
+    descriptions["RISCO"] = "Triagem de risco suicida e de autolesão"
+    descriptions["EEM"] = "Exame do Estado Mental (aparência, comportamento, humor, afeto, pensamento, sensopercepção, consciência, orientação)"
+
+    return descriptions
+
+
+# ─── Dynamic Formative Tips Builder ─────────────────────────────────────────
+def build_formative_tips(profile: dict, investigated: set, core_investigated: set, score_pct: int) -> list:
+    transtorno = profile["transtorno"]
+    tips = []
+
+    # Universal tips
+    if "RISCO" not in investigated:
+        tips.append(
+            "A triagem de risco suicida é obrigatória em toda avaliação psiquiátrica, "
+            "mesmo em quadros de ansiedade. Pergunte diretamente sobre pensamentos de morte, "
+            "desejo de morrer ou autolesão."
+        )
+    if "EEM" not in investigated:
+        tips.append(
+            "O Exame do Estado Mental (EEM) é parte fundamental da avaliação. "
+            "Observe e descreva: aparência, comportamento, humor (relatado pelo paciente), "
+            "afeto (observado por você), pensamento (forma e conteúdo), sensopercepção, "
+            "consciência e orientação."
+        )
+
+    # Disorder-specific tips
+    if transtorno == "TAG":
+        if "E" not in investigated:
+            tips.append("Sempre investigue uso de substâncias (cafeína, álcool, drogas) e condições médicas (hipotireoidismo, feocromocitoma) que possam mimetizar ou agravar sintomas de ansiedade.")
+        if "F" not in investigated:
+            tips.append("Considere diagnósticos diferenciais: os sintomas poderiam ser melhor explicados por outro transtorno (Pânico, Fobia Social, TOC, TEPT)?")
+        if "A" not in investigated:
+            tips.append("É essencial investigar a natureza e abrangência da preocupação: sobre quais temas o paciente se preocupa? São múltiplos? A preocupação é desproporcional?")
+        if "B" not in investigated:
+            tips.append("Pergunte se o paciente consegue controlar a preocupação. A dificuldade de controle é um critério central do TAG.")
+
+    elif transtorno == "panico":
+        if "A" not in investigated:
+            tips.append("Investigue detalhadamente os ataques: início súbito, sintomas físicos (palpitação, sudorese, tremor, falta de ar), duração, pico em minutos. São critérios essenciais do Transtorno de Pânico.")
+        if "B" not in investigated:
+            tips.append("Avalie se houve mudança comportamental após os ataques: preocupação com novos ataques, evitação de situações, ida repetida ao pronto-socorro.")
+        if "C" not in investigated:
+            tips.append("Exclua causas orgânicas: hipertireoidismo, arritmias, uso de substâncias estimulantes podem causar sintomas semelhantes ao pânico.")
+
+    elif transtorno == "ansiedade_social":
+        if "A" not in investigated:
+            tips.append("Investigue quais situações sociais provocam medo: apresentações, conversas, comer em público, ser observado. A especificidade ajuda no diagnóstico.")
+        if "B" not in investigated:
+            tips.append("Explore o que o paciente teme que aconteça nas situações sociais: ser julgado, humilhado, rejeitado. O medo de avaliação negativa é central.")
+        if "D" not in investigated:
+            tips.append("Avalie o padrão de evitação: o paciente evita as situações ou as suporta com sofrimento intenso? Isso é critério diagnóstico.")
+
+    elif transtorno == "fobia_especifica":
+        if "A" not in investigated:
+            tips.append("Identifique o objeto/situação específica que provoca medo: sangue, agulhas, alturas, animais, etc. A especificidade é fundamental para o diagnóstico.")
+        if "B" not in investigated:
+            tips.append("Avalie se a exposição ao estímulo fóbico provoca resposta IMEDIATA de medo/ansiedade. Na fobia de sangue-injeção-ferimentos, a resposta vasovagal (desmaio) é característica.")
+        if "F" not in investigated:
+            tips.append("Avalie o impacto funcional: a fobia está causando prejuízo na vida do paciente (evita exames médicos, evita atividades)?")
+
+    elif transtorno == "agorafobia":
+        if "A" not in investigated:
+            tips.append("Investigue medo/evitação em pelo menos 2 das 5 situações: transporte público, espaços abertos, locais fechados, filas/multidões, sair de casa sozinho.")
+        if "B" not in investigated:
+            tips.append("Explore a cognição por trás da evitação: o paciente teme não conseguir escapar ou não ter ajuda disponível caso passe mal?")
+        if "D" not in investigated:
+            tips.append("Avalie estratégias de segurança: o paciente precisa de acompanhante? Evita ativamente as situações? Estas são evidências importantes.")
+
+    elif transtorno == "ansiedade_separacao":
+        if "A" not in investigated:
+            tips.append("Investigue os sintomas de separação: sofrimento ao se afastar, preocupação com perda/perigo das figuras de apego, pesadelos, recusa a sair, sintomas somáticos. São necessários pelo menos 3 sintomas.")
+        if "B" not in investigated:
+            tips.append("Avalie a duração: em adultos, os sintomas devem persistir por 6 meses ou mais. Investigue a temporalidade.")
+
+    elif transtorno == "mutismo_seletivo":
+        if "A" not in investigated:
+            tips.append("Investigue em quais contextos a criança fala e em quais não fala. O padrão seletivo (fala em casa, não fala na escola/com estranhos) é o critério central.")
+        if "B" not in investigated:
+            tips.append("Avalie o impacto educacional e social: o mutismo interfere no desempenho escolar? Na socialização com colegas?")
+        if "D" not in investigated:
+            tips.append("Exclua que o fracasso para falar se deva a desconhecimento do idioma ou desconforto com ele. Verifique fluência no idioma em contextos onde a criança fala.")
+
+    elif transtorno == "ansiedade_substancia":
+        if "EXAMES" not in investigated:
+            tips.append(
+                "IMPORTANTE: Neste caso, a investigação de substâncias é crucial. Sempre pergunte "
+                "ESPECIFICAMENTE sobre: cafeína (quantidade de café/dia), medicamentos de venda livre "
+                "(descongestionantes, suplementos), álcool (frequência e quantidade), e considere "
+                "solicitar exames laboratoriais (toxicológico, função hepática) para confirmar."
+            )
+        if "B" not in investigated:
+            tips.append("Investigue a relação temporal entre o uso de substâncias e o início/piora dos sintomas. Essa conexão é fundamental para o diagnóstico de ansiedade induzida por substância.")
+
+    elif transtorno == "ansiedade_medica":
+        if "EXAMES" not in investigated:
+            tips.append(
+                "IMPORTANTE: Os sintomas deste paciente sugerem causa orgânica (taquicardia + perda de peso "
+                "+ intolerância ao calor + tremores = padrão clássico de hipertireoidismo). Sempre considere "
+                "solicitar exames laboratoriais (TSH, T4 livre, hemograma) quando os sintomas ansiosos "
+                "acompanham sinais sistêmicos. A investigação de causa orgânica é essencial."
+            )
+        if "B" not in investigated:
+            tips.append("Investigue sinais e sintomas que sugiram causa orgânica: perda de peso, intolerância ao calor, tremores finos, taquicardia em repouso. Esses achados devem levantar suspeita de condição médica subjacente.")
+
+    # General low-coverage tip
+    if len(core_investigated) < len(CORE_CRITERIA_MAP.get(transtorno, set())) * 0.4:
+        tips.append("Utilize perguntas abertas para explorar o quadro clínico de forma mais ampla antes de partir para perguntas fechadas e direcionadas.")
+
+    if score_pct >= 80:
+        tips.append("Boa cobertura dos critérios diagnósticos. Continue praticando a formulação de hipóteses diagnósticas integrando os achados da anamnese.")
+
+    return tips
 
 
 # ─── Global Interview Quality Assessment Prompt (end of session) ─────────────
@@ -199,7 +601,7 @@ Responda APENAS com um JSON válido:
 
 
 # ─── FastAPI App ─────────────────────────────────────────────────────────────
-app = FastAPI(title="PsiqMentor API v3")
+app = FastAPI(title="PsiqMentor API v4")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -212,7 +614,13 @@ client = Anthropic()
 # In-memory session store
 sessions: dict = {}
 
+# Persistent survey storage path
+# Use /data on Render (persistent disk), fallback to local ./data
+SURVEY_DIR = Path("/data") if Path("/data").exists() and os.access("/data", os.W_OK) else Path(__file__).parent / "data"
+SURVEY_FILE = SURVEY_DIR / "surveys.json"
 
+
+# ─── Request/Response Models ────────────────────────────────────────────────
 class ChatRequest(BaseModel):
     session_id: str
     message: str
@@ -222,16 +630,24 @@ class FinishRequest(BaseModel):
     session_id: str
 
 
+class SurveyRequest(BaseModel):
+    session_id: str
+    responses: dict  # Q1-Q10 (int 1-5), Q11-Q12 (str)
+
+
+# ─── Endpoints ──────────────────────────────────────────────────────────────
 @app.post("/api/start")
 def start_session():
     """Start a new simulation session with a random patient profile."""
     session_id = str(uuid.uuid4())
     profile = random.choice(PATIENT_PROFILES)
     system_prompt = build_system_prompt(profile)
+    tracker_prompt = build_tracker_prompt(profile)
 
     sessions[session_id] = {
         "profile": profile,
         "system_prompt": system_prompt,
+        "tracker_prompt": tracker_prompt,
         "messages": [],
         "criteria_tracked": {},
         "criteria_log": [],
@@ -261,7 +677,7 @@ def chat(req: ChatRequest):
 
     # 1. Get patient response from LLM
     patient_response = client.messages.create(
-        model="claude-sonnet-4-20250514",
+        model="claude_sonnet_4_6",
         max_tokens=500,
         system=session["system_prompt"],
         messages=session["messages"],
@@ -275,15 +691,19 @@ def chat(req: ChatRequest):
     tracking_messages = [
         {
             "role": "user",
-            "content": f"Contexto da conversa até agora:\n{_format_conversation(session['messages'][:-1])}\n\nÚLTIMA PERGUNTA DO ALUNO:\n{req.message}",
+            "content": (
+                f"Contexto da conversa até agora:\n"
+                f"{_format_conversation(session['messages'][:-1])}\n\n"
+                f"ÚLTIMA PERGUNTA DO ALUNO:\n{req.message}"
+            ),
         }
     ]
 
     try:
         tracking_response = client.messages.create(
-            model="claude-haiku-4-20250414",
+            model="claude_haiku_4_5",
             max_tokens=300,
-            system=TRACKER_SYSTEM_PROMPT,
+            system=session["tracker_prompt"],
             messages=tracking_messages,
         )
         tracking_text = tracking_response.content[0].text
@@ -333,55 +753,34 @@ def finish_session(req: FinishRequest):
 
     session["finished"] = True
     profile = session["profile"]
+    transtorno = profile["transtorno"]
 
-    # ── Criteria coverage ────────────────────────────────────────────────
-    all_criteria = [
-        "A", "B", "C1", "C2", "C3", "C4", "C5", "C6", "D", "E", "F", "RISCO", "EEM"
-    ]
+    # ── Build dynamic criteria list ──────────────────────────────────────
+    all_criteria = CRITERIA_MAP.get(transtorno, []) + ["RISCO", "EEM"]
+    # Deduplicate while preserving order (RISCO/EEM may already be in the list)
+    seen = set()
+    unique_criteria = []
+    for c in all_criteria:
+        if c not in seen:
+            seen.add(c)
+            unique_criteria.append(c)
+    all_criteria = unique_criteria
+
     investigated = set(session["criteria_tracked"].keys())
     missing = [c for c in all_criteria if c not in investigated]
 
-    core_criteria = {"A", "B", "C1", "C2", "C3", "C4", "C5", "C6", "D", "E"}
+    core_criteria = CORE_CRITERIA_MAP.get(transtorno, set())
     core_investigated = core_criteria.intersection(investigated)
-    score_pct = round((len(core_investigated) / len(core_criteria)) * 100)
+    score_pct = round((len(core_investigated) / max(len(core_criteria), 1)) * 100)
 
     # ── Global quality assessment ────────────────────────────────────────
     quality_assessment = _assess_interview_quality(session["messages"])
 
-    # ── Build formative feedback ─────────────────────────────────────────
-    criteria_descriptions = {
-        "A": "Ansiedade e preocupação excessivas (ocorrendo na maioria dos dias, por pelo menos 6 meses, sobre diversos eventos ou atividades)",
-        "B": "Dificuldade em controlar a preocupação",
-        "C1": "Inquietação ou sensação de estar com os nervos à flor da pele",
-        "C2": "Fatigabilidade (cansar-se com facilidade)",
-        "C3": "Dificuldade de concentração ou 'brancos' na mente",
-        "C4": "Irritabilidade",
-        "C5": "Tensão muscular",
-        "C6": "Perturbação do sono (dificuldade para iniciar/manter o sono, ou sono insatisfatório e inquieto)",
-        "D": "Sofrimento clinicamente significativo ou prejuízo no funcionamento social, profissional ou em outras áreas importantes",
-        "E": "A perturbação não se deve aos efeitos fisiológicos de uma substância ou a outra condição médica",
-        "F": "A perturbação não é mais bem explicada por outro transtorno mental",
-        "RISCO": "Triagem de risco suicida e de autolesão",
-        "EEM": "Exame do Estado Mental (aparência, comportamento, humor, afeto, pensamento, sensopercepção, consciência, orientação)",
-    }
+    # ── Build dynamic criteria descriptions ──────────────────────────────
+    criteria_descriptions = build_criteria_descriptions(profile)
 
-    formative_tips = []
-    if "RISCO" not in investigated:
-        formative_tips.append("A triagem de risco suicida é obrigatória em toda avaliação psiquiátrica, mesmo em quadros de ansiedade. Pergunte diretamente sobre pensamentos de morte, desejo de morrer ou autolesão.")
-    if "EEM" not in investigated:
-        formative_tips.append("O Exame do Estado Mental (EEM) é parte fundamental da avaliação. Observe e descreva: aparência, comportamento, humor (relatado pelo paciente), afeto (observado por você), pensamento (forma e conteúdo), sensopercepção, consciência e orientação.")
-    if "E" not in investigated:
-        formative_tips.append("Sempre investigue uso de substâncias (cafeína, álcool, drogas) e condições médicas (hipotireoidismo, feocromocitoma) que possam mimetizar ou agravar sintomas de ansiedade.")
-    if "F" not in investigated:
-        formative_tips.append("Considere diagnósticos diferenciais: os sintomas poderiam ser melhor explicados por outro transtorno (Pânico, Fobia Social, TOC, TEPT)?")
-    if "A" not in investigated:
-        formative_tips.append("É essencial investigar a natureza e abrangência da preocupação: sobre quais temas o paciente se preocupa? São múltiplos? A preocupação é desproporcional?")
-    if "B" not in investigated:
-        formative_tips.append("Pergunte se o paciente consegue controlar a preocupação. A dificuldade de controle é um critério central do TAG.")
-    if len(core_investigated) < 4:
-        formative_tips.append("Utilize perguntas abertas para explorar o quadro clínico de forma mais ampla antes de partir para perguntas fechadas e direcionadas.")
-    if score_pct >= 80:
-        formative_tips.append("Boa cobertura dos critérios diagnósticos. Continue praticando a formulação de hipóteses diagnósticas integrando os achados da anamnese.")
+    # ── Build formative tips ─────────────────────────────────────────────
+    formative_tips = build_formative_tips(profile, investigated, core_investigated, score_pct)
 
     return {
         "score_pct": score_pct,
@@ -390,15 +789,99 @@ def finish_session(req: FinishRequest):
         "criteria_descriptions": criteria_descriptions,
         "total_turns": len(session["messages"]) // 2,
         "diagnostico_correto": profile["diagnostico_real"],
+        "transtorno": transtorno,
         "quality_assessment": quality_assessment,
         "formative_tips": formative_tips,
         "criteria_log": session["criteria_log"],
     }
 
 
+# ─── Survey Endpoints ───────────────────────────────────────────────────────
+@app.post("/api/survey")
+def submit_survey(req: SurveyRequest):
+    """Save survey responses to persistent storage."""
+    session = sessions.get(req.session_id)
+    transtorno = session["profile"]["transtorno"] if session else "unknown"
+
+    entry = {
+        "timestamp": datetime.now().isoformat(),
+        "session_id": req.session_id,
+        "transtorno": transtorno,
+        "responses": req.responses,
+    }
+
+    # Ensure directory exists
+    SURVEY_DIR.mkdir(parents=True, exist_ok=True)
+
+    # Read existing data, append, write back
+    surveys = []
+    if SURVEY_FILE.exists():
+        try:
+            surveys = json.loads(SURVEY_FILE.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            surveys = []
+
+    surveys.append(entry)
+    SURVEY_FILE.write_text(json.dumps(surveys, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    return {"status": "ok"}
+
+
+@app.get("/api/survey/export")
+def export_surveys():
+    """Export all survey responses as a CSV file."""
+    surveys = []
+    if SURVEY_FILE.exists():
+        try:
+            surveys = json.loads(SURVEY_FILE.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            surveys = []
+
+    output = io.StringIO()
+    fieldnames = ["timestamp", "session_id", "transtorno",
+                  "Q1", "Q2", "Q3", "Q4", "Q5", "Q6", "Q7", "Q8", "Q9", "Q10",
+                  "Q11", "Q12"]
+    writer = csv.DictWriter(output, fieldnames=fieldnames)
+    writer.writeheader()
+
+    for s in surveys:
+        row = {
+            "timestamp": s.get("timestamp", ""),
+            "session_id": s.get("session_id", ""),
+            "transtorno": s.get("transtorno", ""),
+        }
+        responses = s.get("responses", {})
+        for q in ["Q1", "Q2", "Q3", "Q4", "Q5", "Q6", "Q7", "Q8", "Q9", "Q10", "Q11", "Q12"]:
+            row[q] = responses.get(q, "")
+        writer.writerow(row)
+
+    output.seek(0)
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=surveys.csv"},
+    )
+
+
+# ─── Health Check ───────────────────────────────────────────────────────────
+@app.get("/api/health")
+def health():
+    return {"status": "ok", "version": "v4", "active_sessions": len(sessions)}
+
+
+# ─── Serve Frontend ─────────────────────────────────────────────────────────
+@app.get("/", response_class=HTMLResponse)
+def serve_frontend():
+    html_path = Path(__file__).parent / "index.html"
+    content = html_path.read_text(encoding="utf-8")
+    content = content.replace("__PORT_8000__", "")
+    return HTMLResponse(content=content)
+
+
+# ─── Helper Functions ───────────────────────────────────────────────────────
 def _assess_interview_quality(messages: list) -> dict:
     """Assess the overall quality of the interview process."""
-    if len(messages) < 4:
+    if len(messages) < 4:  # Less than 2 turns
         return {
             "acolhimento_rapport": {"classificacao": "não_aplicável", "observacao": "Entrevista muito curta para avaliar."},
             "progressao_logica": {"classificacao": "não_aplicável", "observacao": "Entrevista muito curta para avaliar."},
@@ -414,7 +897,7 @@ def _assess_interview_quality(messages: list) -> dict:
 
     try:
         response = client.messages.create(
-            model="claude-sonnet-4-20250514",
+            model="claude_sonnet_4_6",
             max_tokens=1500,
             system=QUALITY_ASSESSMENT_PROMPT,
             messages=[{"role": "user", "content": f"TRANSCRIÇÃO DA ENTREVISTA:\n\n{conversation_text}"}],
@@ -440,11 +923,6 @@ def _assess_interview_quality(messages: list) -> dict:
     }
 
 
-@app.get("/api/health")
-def health():
-    return {"status": "ok", "active_sessions": len(sessions)}
-
-
 def _format_conversation(messages: list) -> str:
     """Format last messages for criteria tracker."""
     lines = []
@@ -463,18 +941,6 @@ def _format_full_conversation(messages: list) -> str:
     return "\n".join(lines)
 
 
-# ─── Serve Frontend (static files) ──────────────────────────────────────────
-STATIC_DIR = Path(__file__).parent / "static"
-
-@app.get("/")
-def serve_index():
-    return FileResponse(STATIC_DIR / "index.html")
-
-# Mount static files AFTER API routes
-app.mount("/", StaticFiles(directory=str(STATIC_DIR)), name="static")
-
-
 if __name__ == "__main__":
     import uvicorn
-    port = int(os.environ.get("PORT", 8000))
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    uvicorn.run(app, host="0.0.0.0", port=8000)
