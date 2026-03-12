@@ -1416,7 +1416,7 @@
 
       <!-- Input -->
       <div class="input-area">
-        <textarea id="messageInput" placeholder="Faça uma pergunta ao paciente..." rows="1"></textarea>
+        <textarea id="messageInput" placeholder="Inicie o atendimento com o(a) paciente..." rows="1"></textarea>
         <button class="send-btn" id="sendBtn">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <line x1="22" y1="2" x2="11" y2="13"/>
@@ -1767,7 +1767,7 @@ startBtn.addEventListener("click", async () => {
 
     // Reset chat state
     messageInput.disabled = false;
-    messageInput.placeholder = "Faça uma pergunta ao paciente...";
+    messageInput.placeholder = "Inicie o atendimento com o(a) paciente...";
     sendBtn.disabled = false;
     endHintBanner.style.display = "";
     document.getElementById("phaseLabel").textContent = "Simulação em andamento";
@@ -1776,8 +1776,7 @@ startBtn.addEventListener("click", async () => {
     showScreen(chatScreen);
     messageInput.focus();
 
-    // Auto-send greeting immediately
-    await sendMessage("Olá, bom dia! Em que posso ajudá-lo(a)?");
+    // Student starts the conversation — no auto-greeting
 
   } catch (err) {
     console.error(err);
