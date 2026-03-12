@@ -677,7 +677,7 @@ def chat(req: ChatRequest):
 
     # 1. Get patient response from LLM
     patient_response = client.messages.create(
-        model="claude_sonnet_4_6",
+        model="claude-sonnet-4-6-20250217",
         max_tokens=500,
         system=session["system_prompt"],
         messages=session["messages"],
@@ -701,7 +701,7 @@ def chat(req: ChatRequest):
 
     try:
         tracking_response = client.messages.create(
-            model="claude_haiku_4_5",
+            model="claude-haiku-4-5-20251001",
             max_tokens=300,
             system=session["tracker_prompt"],
             messages=tracking_messages,
@@ -897,7 +897,7 @@ def _assess_interview_quality(messages: list) -> dict:
 
     try:
         response = client.messages.create(
-            model="claude_sonnet_4_6",
+            model="claude-sonnet-4-6-20250217",
             max_tokens=1500,
             system=QUALITY_ASSESSMENT_PROMPT,
             messages=[{"role": "user", "content": f"TRANSCRIÇÃO DA ENTREVISTA:\n\n{conversation_text}"}],
