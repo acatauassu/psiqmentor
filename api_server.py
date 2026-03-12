@@ -333,14 +333,18 @@ Dona Lúcia cumprimenta o médico e diz algo como: "Boa tarde, doutor(a). Eu sou
 
 9. **COMPRIMENTO DAS RESPOSTAS**: Mantenha respostas curtas a moderadas (2-5 frases), como um paciente real faria. Não faça monólogos longos a menos que provocado por uma pergunta muito aberta e empática.
 
-10. **NUNCA SAIA DO PAPEL DE PACIENTE**: Mesmo que o aluno faça perguntas estranhas, tente dar diagnósticos, ou fuja do contexto clínico, você deve SEMPRE responder como paciente. Nunca dê feedback, avaliações ou orientações ao aluno durante a conversa. Você é APENAS o paciente."""
+10. **NUNCA SAIA DO PAPEL DE PACIENTE**: Mesmo que o aluno faça perguntas estranhas, tente dar diagnósticos, ou fuja do contexto clínico, você deve SEMPRE responder como paciente. Nunca dê feedback, avaliações ou orientações ao aluno durante a conversa. Você é APENAS o paciente.
+
+11. **APARÊNCIA E VESTUÁRIO**: Na sua PRIMEIRA resposta, inclua entre asteriscos uma descrição detalhada da sua aparência ao entrar na sala: vestuário, higiene pessoal, postura corporal, expressão facial, objetos que carrega. Exemplo: *entra na sala vestindo calça jeans e camiseta, cabelo penteado, aparência cuidada, mãos inquietas no colo, expressão tensa*. Seja coerente com seu perfil e quadro clínico.
+
+12. **EXPRESSÕES E GESTOS**: Ao longo de TODA a conversa, inclua sempre entre asteriscos descrições de comportamento não-verbal: mudanças de expressão facial, gestos, postura, contato visual, tom de voz, pausas, sinais de ansiedade (mexer mãos, evitar olhar, engolir seco, etc). Esses dados são essenciais para o Exame do Estado Mental. Exemplo: *desvia o olhar e mexe as mãos nervosamente* ou *faz uma pausa longa, engole seco*."""
 
     # ── Opening line rule (customized) ──────────────────────────────────
     if transtorno == "mutismo_seletivo":
         opening_rule = ""  # Opening is handled in disorder_rules
     else:
         opening_rule = f"""
-11. **INÍCIO DA CONSULTA**: Na primeira mensagem (quando o aluno cumprimentar), apresente-se brevemente e diga algo como "{'Obrigada' if profile['genero'] == 'feminino' else 'Obrigado'} por me atender, doutor(a). Não tenho me sentido bem ultimamente..." e espere as perguntas."""
+13. **INÍCIO DA CONSULTA**: Na primeira mensagem (quando o aluno cumprimentar), apresente-se brevemente e diga algo como "{'Obrigada' if profile['genero'] == 'feminino' else 'Obrigado'} por me atender, doutor(a). Não tenho me sentido bem ultimamente..." e espere as perguntas."""
 
     # ── Assemble final prompt ────────────────────────────────────────────
     return f"""Você é um PACIENTE SIMULADO para treinamento de estudantes de Medicina em anamnese psiquiátrica.
@@ -604,8 +608,24 @@ Responda APENAS com um JSON válido:
 }"""
 
 
+# ─── EEM Summary Prompt ──────────────────────────────────────────────────────
+EEM_SUMMARY_PROMPT = """Você é um sistema que analisa transcrições de entrevistas psiquiátricas simuladas. Extraia TODAS as pistas observacionais das respostas do paciente (especialmente tudo entre asteriscos *...*) e organize em categorias do Exame do Estado Mental.
+
+Para cada categoria, liste as observações encontradas na conversa, citando os trechos relevantes. Se não houver dados, escreva "Sem dados observados na entrevista".
+
+Categorias:
+1. **Aparência Geral e Vestuário**: Como o paciente se apresentou visualmente (roupas, higiene, postura ao entrar)
+2. **Comportamento Psicomotor**: Gestos, agitação, lentificação, inquietação, movimentos repetitivos
+3. **Expressão Facial e Contato Visual**: Expressões observadas, mudanças, contato visual ou evitação
+4. **Atitude na Entrevista**: Cooperativo, resistente, hostil, evasivo, desconfiado
+5. **Fala e Linguagem**: Velocidade, volume, prosódia, pausas, hesitações
+6. **Humor e Afeto Observados**: Sinais emocionais (choro, tensão, sorrisos, etc.)
+
+Responda em texto formatado, com cada categoria como título em negrito. Seja objetivo e cite diretamente os trechos observacionais encontrados entre aspas."""
+
+
 # ─── FastAPI App ─────────────────────────────────────────────────────────────
-app = FastAPI(title="PsiqMentor API v4")
+app = FastAPI(title="PsiqMentor API v4.3")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -655,6 +675,15 @@ class SurveyRequest(BaseModel):
     responses: dict  # Q1-Q10 (int 1-5), Q11-Q12 (str)
 
 
+class EEMRequest(BaseModel):
+    session_id: str
+
+
+class EEMSubmitRequest(BaseModel):
+    session_id: str
+    eem_data: dict
+
+
 class AdminLoginRequest(BaseModel):
     username: str
     password: str
@@ -678,6 +707,7 @@ def start_session():
         "criteria_log": [],
         "started_at": datetime.now().isoformat(),
         "finished": False,
+        "eem_student": None,
     }
 
     # Increment persistent session counter
@@ -786,6 +816,37 @@ def chat(req: ChatRequest):
     }
 
 
+@app.post("/api/eem-summary")
+def eem_summary(req: EEMRequest):
+    """Generate EEM observational summary from conversation cues."""
+    session = sessions.get(req.session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Sessão não encontrada")
+
+    conversation_text = _format_full_conversation(session["messages"])
+
+    try:
+        response = client.messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=1500,
+            system=EEM_SUMMARY_PROMPT,
+            messages=[{"role": "user", "content": f"TRANSCRIÇÃO DA ENTREVISTA:\n\n{conversation_text}"}],
+        )
+        return {"eem_summary": response.content[0].text}
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Erro ao gerar resumo do EEM: {str(e)}")
+
+
+@app.post("/api/eem-submit")
+def eem_submit(req: EEMSubmitRequest):
+    """Store the student's EEM form data in the session."""
+    session = sessions.get(req.session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Sessão não encontrada")
+    session["eem_student"] = req.eem_data
+    return {"status": "ok"}
+
+
 @app.post("/api/finish")
 def finish_session(req: FinishRequest):
     """Finish the session and return the full formative feedback report."""
@@ -824,6 +885,11 @@ def finish_session(req: FinishRequest):
     # ── Build formative tips ─────────────────────────────────────────────
     formative_tips = build_formative_tips(profile, investigated, core_investigated, score_pct)
 
+    # ── EEM evaluation (if student completed it) ─────────────────────────
+    eem_evaluation = None
+    if session.get("eem_student"):
+        eem_evaluation = _evaluate_eem(session)
+
     return {
         "score_pct": score_pct,
         "criteria_investigated": sorted(list(investigated)),
@@ -835,6 +901,8 @@ def finish_session(req: FinishRequest):
         "quality_assessment": quality_assessment,
         "formative_tips": formative_tips,
         "criteria_log": session["criteria_log"],
+        "eem_student": session.get("eem_student"),
+        "eem_evaluation": eem_evaluation,
     }
 
 
@@ -948,7 +1016,7 @@ def admin_dashboard(token: str = Query(...)):
 
     return {
         "health": {
-            "version": "v4.2",
+            "version": "v4.3",
             "anthropic_key_set": has_key,
             "active_sessions": len(sessions),
             "total_sessions": total_sessions,
@@ -1021,7 +1089,7 @@ def health():
     has_key = bool(os.environ.get("ANTHROPIC_API_KEY"))
     return {
         "status": "ok",
-        "version": "v4.2",
+        "version": "v4.3",
         "active_sessions": len(sessions),
         "anthropic_key_set": has_key,
     }
@@ -1097,6 +1165,50 @@ def _format_full_conversation(messages: list) -> str:
         role = "Estudante" if m["role"] == "user" else "Paciente"
         lines.append(f"{role}: {m['content']}")
     return "\n".join(lines)
+
+
+def _evaluate_eem(session: dict) -> dict:
+    """Evaluate the student's EEM against conversational observations."""
+    eem_data = session.get("eem_student", {})
+    conversation_text = _format_full_conversation(session["messages"])
+
+    prompt = f"""Analise o Exame do Estado Mental preenchido por um estudante de medicina após entrevista com paciente simulado.
+
+EEM DO ESTUDANTE:
+{json.dumps(eem_data, ensure_ascii=False, indent=2)}
+
+TRANSCRIÇÃO DA ENTREVISTA:
+{conversation_text}
+
+Avalie: O estudante captou adequadamente as pistas observacionais? Identificou corretamente o humor e afeto? Registrou o comportamento psicomotor observado? Suas descrições são coerentes com o que o paciente demonstrou?
+
+Responda com JSON:
+{{
+  "avaliacao_geral": "adequado|parcial|insuficiente",
+  "pontos_fortes": ["lista de pontos positivos"],
+  "areas_melhorar": ["lista de áreas a melhorar"],
+  "comentario": "breve parágrafo com feedback formativo"
+}}"""
+
+    try:
+        response = client.messages.create(
+            model="claude-haiku-4-5",
+            max_tokens=800,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        text = response.content[0].text
+        json_start = text.find("{")
+        json_end = text.rfind("}") + 1
+        if json_start >= 0 and json_end > json_start:
+            return json.loads(text[json_start:json_end])
+    except Exception:
+        pass
+    return {
+        "avaliacao_geral": "não_aplicável",
+        "pontos_fortes": [],
+        "areas_melhorar": [],
+        "comentario": "Não foi possível avaliar o EEM.",
+    }
 
 
 if __name__ == "__main__":

@@ -424,6 +424,141 @@
     color: #78350f;
     letter-spacing: 0.05em;
   }
+  .eem-hint-banner {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 8px 20px;
+    background: #dbeafe;
+    color: #1e40af;
+    border-radius: 20px;
+    font-size: 13px;
+    line-height: 1.4;
+  }
+  .eem-hint-banner strong {
+    color: #1e3a8a;
+    letter-spacing: 0.05em;
+  }
+
+  /* ─── EEM Screen ────────────────────────────── */
+  #eem-screen {
+    padding: 24px;
+    gap: 24px;
+  }
+  .eem-layout {
+    max-width: 1100px;
+    width: 100%;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+  }
+  .eem-panel {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 24px;
+    box-shadow: var(--shadow-sm);
+  }
+  .eem-panel h3 {
+    font-family: var(--font-display);
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    letter-spacing: -0.01em;
+  }
+  .eem-summary-content {
+    font-size: 14px;
+    line-height: 1.7;
+    color: var(--text-secondary);
+    max-height: 500px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+  }
+  .eem-summary-content strong {
+    color: var(--text-primary);
+  }
+  .eem-summary-loading {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text-muted);
+  }
+  .eem-summary-loading .spinner {
+    display: inline-block;
+    width: 24px;
+    height: 24px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin-bottom: 12px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .eem-form-group {
+    margin-bottom: 16px;
+  }
+  .eem-form-group label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 6px;
+  }
+  .eem-form-group textarea {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-family: var(--font-body);
+    font-size: 14px;
+    line-height: 1.5;
+    resize: vertical;
+    min-height: 48px;
+    background: var(--bg);
+    color: var(--text-primary);
+    transition: border-color 0.15s;
+  }
+  .eem-form-group textarea:focus {
+    outline: none;
+    border-color: var(--border-focus);
+    box-shadow: 0 0 0 3px rgba(37,99,235,0.1);
+  }
+  .eem-form-group textarea::placeholder {
+    color: var(--text-muted);
+  }
+  .eem-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 20px;
+  }
+  .btn-encerrar-sim {
+    width: 100%;
+    padding: 14px 28px;
+    font-size: 16px;
+  }
+
+  .eem-header-bar {
+    max-width: 1100px;
+    width: 100%;
+    margin: 0 auto;
+    text-align: center;
+  }
+  .eem-header-bar h2 {
+    font-family: var(--font-display);
+    font-size: 24px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin-bottom: 4px;
+  }
+  .eem-header-bar p {
+    font-size: 14px;
+    color: var(--text-secondary);
+  }
+
 
   /* ─── Start Button (random) ─────────────────── */
   .btn-start-random {
@@ -929,6 +1064,9 @@
     .report-score-row { flex-direction: column; text-align: center; }
     .chat-bottom-bar { padding: 8px 16px 10px; }
     .end-hint-banner { font-size: 12px; padding: 6px 14px; }
+    .eem-hint-banner { font-size: 12px; padding: 6px 14px; }
+    .eem-layout { grid-template-columns: 1fr; }
+    .eem-header-bar h2 { font-size: 20px; }
     .quality-dim-grid { grid-template-columns: 1fr; }
     .likert-options { gap: 4px; }
     .likert-options label .radio-circle { width: 30px; height: 30px; font-size: 12px; }
@@ -1425,15 +1563,101 @@
         </button>
       </div>
       <div class="chat-bottom-bar">
-        <div class="end-hint-banner" id="endHintBanner">
+        <div class="eem-hint-banner" id="eemHintBanner">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="10"/>
-            <line x1="12" y1="16" x2="12" y2="12"/>
-            <line x1="12" y1="8" x2="12.01" y2="8"/>
+            <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/>
+            <rect x="9" y="3" width="6" height="4" rx="1"/>
+            <line x1="9" y1="12" x2="15" y2="12"/>
+            <line x1="9" y1="16" x2="15" y2="16"/>
           </svg>
-          Digite <strong>ENCERRAR</strong> para finalizar a simulação
+          Digite <strong>EEM</strong> para ir para o Exame do Estado Mental
         </div>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ EEM Screen ════════════════════════════════════════════════ -->
+<div id="eem-screen" class="screen">
+  <div class="eem-header-bar">
+    <h2>Exame do Estado Mental</h2>
+    <p>Preencha o formulário com base nas suas observações durante a entrevista.</p>
+  </div>
+
+  <div class="eem-layout">
+    <!-- Left: AI observational summary -->
+    <div class="eem-panel">
+      <h3>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
+          <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+        </svg>
+        Dados Observacionais da Entrevista
+      </h3>
+      <div id="eemSummaryContent" class="eem-summary-content">
+        <div class="eem-summary-loading">
+          <div class="spinner"></div>
+          <p>Analisando a conversa...</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right: Student form -->
+    <div class="eem-panel">
+      <h3>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+        </svg>
+        Sua Avaliação do EEM
+      </h3>
+      <form id="eemForm">
+        <div class="eem-form-group">
+          <label for="eem-aparencia">1. Aparência Geral</label>
+          <textarea id="eem-aparencia" placeholder="Vestiário, higiene pessoal, postura, constituição física..." rows="2"></textarea>
+        </div>
+        <div class="eem-form-group">
+          <label for="eem-psicomotor">2. Comportamento Psicomotor</label>
+          <textarea id="eem-psicomotor" placeholder="Agitação, lentificação, inquietação, gestos, movimentos repetitivos..." rows="2"></textarea>
+        </div>
+        <div class="eem-form-group">
+          <label for="eem-humor">3. Humor</label>
+          <textarea id="eem-humor" placeholder="Humor referido pelo paciente (eutímico, deprimido, ansioso, irritável...)" rows="2"></textarea>
+        </div>
+        <div class="eem-form-group">
+          <label for="eem-afeto">4. Afeto</label>
+          <textarea id="eem-afeto" placeholder="Congruência com o humor, amplitude, reatividade, estabilidade..." rows="2"></textarea>
+        </div>
+        <div class="eem-form-group">
+          <label for="eem-pensamento-forma">5. Pensamento — Forma</label>
+          <textarea id="eem-pensamento-forma" placeholder="Curso, velocidade e continuidade do pensamento (acelerado, lentificado, circunstancial...)" rows="2"></textarea>
+        </div>
+        <div class="eem-form-group">
+          <label for="eem-pensamento-conteudo">6. Pensamento — Conteúdo</label>
+          <textarea id="eem-pensamento-conteudo" placeholder="Delírios, ideias supervalorizadas, ruminações, fobias, obsessões, ideação suicida..." rows="2"></textarea>
+        </div>
+        <div class="eem-form-group">
+          <label for="eem-sensopercepcao">7. Sensopercepção</label>
+          <textarea id="eem-sensopercepcao" placeholder="Alucinações (visuais, auditivas, etc.), ilusões, despersonalização, desrealização..." rows="2"></textarea>
+        </div>
+        <div class="eem-form-group">
+          <label for="eem-cognicao">8. Cognição</label>
+          <textarea id="eem-cognicao" placeholder="Orientação, atenção, memória, inteligência estimada, capacidade de abstração..." rows="2"></textarea>
+        </div>
+        <div class="eem-form-group">
+          <label for="eem-juizo">9. Juízo Crítico e Insight</label>
+          <textarea id="eem-juizo" placeholder="Consciência da doença, capacidade de julgamento, insight sobre a condição..." rows="2"></textarea>
+        </div>
+        <div class="eem-actions">
+          <button type="submit" class="btn btn-primary btn-encerrar-sim" id="eemSubmitBtn">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+              <polyline points="22 4 12 14.01 9 11.01"/>
+            </svg>
+            Encerrar Simulação
+          </button>
+        </div>
+      </form>
     </div>
   </div>
 </div>
@@ -1703,10 +1927,12 @@ let sessionId = null;
 let sending = false;
 let lastReportData = null;
 let adminToken = null;
+let eemCompleted = false;
 
 // ─── DOM Elements ───────────────────────────────────────────────
 const welcomeScreen      = document.getElementById("welcome-screen");
 const chatScreen         = document.getElementById("chat-screen");
+const eemScreen          = document.getElementById("eem-screen");
 const postScreen         = document.getElementById("post-screen");
 const surveyScreen       = document.getElementById("survey-screen");
 const reportScreen       = document.getElementById("report-screen");
@@ -1717,7 +1943,7 @@ const messagesContainer = document.getElementById("messagesContainer");
 const messageInput      = document.getElementById("messageInput");
 const sendBtn           = document.getElementById("sendBtn");
 const startBtn          = document.getElementById("startBtn");
-const endHintBanner     = document.getElementById("endHintBanner");
+const eemHintBanner     = document.getElementById("eemHintBanner");
 const typingIndicator   = document.getElementById("typingIndicator");
 const patientNameEl     = document.getElementById("patientName");
 const patientDetailEl   = document.getElementById("patientDetail");
@@ -1737,7 +1963,7 @@ const downloadPdfBtn  = document.getElementById("downloadPdfBtn");
 const reportBackBtn   = document.getElementById("reportBackBtn");
 
 // ─── Screen Navigation ──────────────────────────────────────────
-const allScreens = [welcomeScreen, chatScreen, postScreen, surveyScreen, reportScreen, adminLoginScreen, adminScreen];
+const allScreens = [welcomeScreen, chatScreen, eemScreen, postScreen, surveyScreen, reportScreen, adminLoginScreen, adminScreen];
 
 function showScreen(screen) {
   allScreens.forEach(s => s.classList.remove("active"));
@@ -1769,7 +1995,8 @@ startBtn.addEventListener("click", async () => {
     messageInput.disabled = false;
     messageInput.placeholder = "Inicie o atendimento com o(a) paciente...";
     sendBtn.disabled = false;
-    endHintBanner.style.display = "";
+    eemHintBanner.style.display = "";
+    eemCompleted = false;
     document.getElementById("phaseLabel").textContent = "Simulação em andamento";
 
     // Go directly to chat — no modal in V4
@@ -1792,9 +2019,25 @@ startBtn.addEventListener("click", async () => {
 async function sendMessage(text) {
   if (!text.trim() || !sessionId || sending) return;
 
-  // Detect "encerrar" command
+  // Detect "EEM" command — EEM is mandatory before finishing
+  if (text.trim().toUpperCase() === "EEM") {
+    if (eemCompleted) {
+      addMessage("system", "Você já realizou o EEM nesta simulação.");
+      messageInput.value = "";
+      autoResize(messageInput);
+      return;
+    }
+    messageInput.value = "";
+    autoResize(messageInput);
+    openEEMScreen();
+    return;
+  }
+
+  // ENCERRAR is no longer accepted in chat — must use EEM screen
   if (text.trim().toUpperCase() === "ENCERRAR") {
-    endSession();
+    messageInput.value = "";
+    autoResize(messageInput);
+    addMessage("system", "Para encerrar a simulação, primeiro realize o Exame do Estado Mental. Digite EEM.");
     return;
   }
 
@@ -1861,6 +2104,91 @@ function showTyping(show) {
   if (show) messagesContainer.scrollTop = messagesContainer.scrollHeight;
 }
 
+// ─── EEM Screen Logic ───────────────────────────────────────────
+async function openEEMScreen() {
+  // Reset EEM form
+  document.getElementById("eemForm").reset();
+
+  // Reset submit button
+  const submitBtn = document.getElementById("eemSubmitBtn");
+  submitBtn.disabled = false;
+  submitBtn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> Encerrar Simulação`;
+
+  // Show loading in summary panel
+  document.getElementById("eemSummaryContent").innerHTML = `
+    <div class="eem-summary-loading">
+      <div class="spinner"></div>
+      <p>Analisando a conversa...</p>
+    </div>
+  `;
+
+  showScreen(eemScreen);
+
+  // Fetch AI-generated observational summary
+  try {
+    const res = await fetch(`${API}/api/eem-summary`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ session_id: sessionId }),
+    });
+    const data = await res.json();
+
+    // Format the summary: convert markdown bold to HTML
+    let html = data.eem_summary
+      .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+      .replace(/\n/g, "<br>");
+    document.getElementById("eemSummaryContent").innerHTML = html;
+  } catch (err) {
+    console.error("Erro ao carregar resumo do EEM:", err);
+    document.getElementById("eemSummaryContent").innerHTML =
+      '<p style="color:var(--danger);">Erro ao carregar dados observacionais. Preencha o formulário com base nas suas próprias observações.</p>';
+  }
+}
+
+// EEM form submission: submit EEM + end session in one action
+document.getElementById("eemForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+
+  const eemData = {
+    aparencia_geral: document.getElementById("eem-aparencia").value.trim(),
+    comportamento_psicomotor: document.getElementById("eem-psicomotor").value.trim(),
+    humor: document.getElementById("eem-humor").value.trim(),
+    afeto: document.getElementById("eem-afeto").value.trim(),
+    pensamento_forma: document.getElementById("eem-pensamento-forma").value.trim(),
+    pensamento_conteudo: document.getElementById("eem-pensamento-conteudo").value.trim(),
+    sensopercepcao: document.getElementById("eem-sensopercepcao").value.trim(),
+    cognicao: document.getElementById("eem-cognicao").value.trim(),
+    juizo_critico: document.getElementById("eem-juizo").value.trim(),
+  };
+
+  // Check if at least one field was filled
+  const filled = Object.values(eemData).some(v => v.length > 0);
+  if (!filled) {
+    alert("Preencha ao menos um campo do EEM.");
+    return;
+  }
+
+  const btn = document.getElementById("eemSubmitBtn");
+  btn.disabled = true;
+  btn.innerHTML = "Encerrando...";
+
+  // Submit EEM data
+  try {
+    await fetch(`${API}/api/eem-submit`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ session_id: sessionId, eem_data: eemData }),
+    });
+  } catch (err) {
+    console.error("Erro ao salvar EEM:", err);
+  }
+
+  eemCompleted = true;
+
+  // End session directly
+  endSession();
+});
+
 // ─── End Session ────────────────────────────────────────────────
 async function endSession() {
   messageInput.value = "";
@@ -1872,7 +2200,7 @@ async function endSession() {
   sendBtn.disabled = true;
 
   // Update UI
-  endHintBanner.style.display = "none";
+  eemHintBanner.style.display = "none";
   document.getElementById("phaseLabel").textContent = "Simulação encerrada";
 
   // Show brief system message (no summary in chat per V4 spec)
@@ -2015,6 +2343,56 @@ reportBackBtn.addEventListener("click", () => {
   showScreen(postScreen);
 });
 
+// ─── EEM Report Section Builder ──────────────────────────────────
+function buildEEMReportSection(data) {
+  if (!data.eem_student && !data.eem_evaluation) {
+    return `<div class="report-section">
+      <h3>Exame do Estado Mental (EEM)</h3>
+      <p style="color:var(--text-muted); font-style:italic;">Não realizado nesta simulação.</p>
+    </div>`;
+  }
+
+  const eemFields = {
+    aparencia_geral: "Aparência Geral",
+    comportamento_psicomotor: "Comportamento Psicomotor",
+    humor: "Humor",
+    afeto: "Afeto",
+    pensamento_forma: "Pensamento — Forma",
+    pensamento_conteudo: "Pensamento — Conteúdo",
+    sensopercepcao: "Sensopercepção",
+    cognicao: "Cognição",
+    juizo_critico: "Juízo Crítico e Insight",
+  };
+
+  let studentRows = "";
+  if (data.eem_student) {
+    for (const [key, label] of Object.entries(eemFields)) {
+      const val = data.eem_student[key] || "—";
+      studentRows += `<tr><td style="font-weight:600; white-space:nowrap;">${label}</td><td>${val}</td></tr>`;
+    }
+  }
+
+  const evalHtml = data.eem_evaluation ? `
+    <div style="margin-top:20px;">
+      <h4 style="font-size:14px; font-weight:600; margin-bottom:8px;">Avaliação do EEM</h4>
+      <p style="font-size:14px; color:var(--text-secondary); line-height:1.6;">${data.eem_evaluation.comentario || ""}</p>
+      ${data.eem_evaluation.pontos_fortes ? `<p style="margin-top:8px; font-size:14px;"><strong style="color:var(--success);">Pontos fortes:</strong> ${data.eem_evaluation.pontos_fortes}</p>` : ""}
+      ${data.eem_evaluation.pontos_melhoria ? `<p style="margin-top:4px; font-size:14px;"><strong style="color:var(--warning);">Pontos a melhorar:</strong> ${data.eem_evaluation.pontos_melhoria}</p>` : ""}
+    </div>
+  ` : "";
+
+  return `<div class="report-section">
+    <h3>Exame do Estado Mental (EEM)</h3>
+    ${data.eem_student ? `
+      <table class="report-table">
+        <thead><tr><th>Campo</th><th>Observação do Estudante</th></tr></thead>
+        <tbody>${studentRows}</tbody>
+      </table>
+    ` : ""}
+    ${evalHtml}
+  </div>`;
+}
+
 // ─── Show Report ────────────────────────────────────────────────
 function showReport(data) {
   const scoreClass = data.score_pct >= 70 ? "high" : data.score_pct >= 40 ? "medium" : "low";
@@ -2136,6 +2514,8 @@ function showReport(data) {
     </div>
 
     ${allTips.length > 0 ? `<div class="report-section"><h3>Orientações Formativas</h3>${tipsHtml}</div>` : ""}
+
+    ${buildEEMReportSection(data)}
 
     <div class="disclaimer">
       <strong>Aviso:</strong> Este simulador é uma ferramenta de treinamento acadêmico.
@@ -2367,6 +2747,81 @@ function generatePDF(data) {
       doc.text(lines, margin + 2, y);
       y += lines.length * 4 + 4;
     });
+  }
+
+  // ── EEM Section ──
+  if (data.eem_student) {
+    y += 6;
+    checkPage(30);
+    doc.setTextColor(...blue);
+    doc.setFontSize(13);
+    doc.setFont("helvetica", "bold");
+    doc.text("Exame do Estado Mental (EEM)", margin, y);
+    y += 2;
+    doc.line(margin, y, margin + contentW, y);
+    y += 8;
+
+    const eemFieldNames = {
+      aparencia_geral: "Apar\u00eancia Geral",
+      comportamento_psicomotor: "Comp. Psicomotor",
+      humor: "Humor",
+      afeto: "Afeto",
+      pensamento_forma: "Pensamento (Forma)",
+      pensamento_conteudo: "Pensamento (Conte\u00fado)",
+      sensopercepcao: "Sensopercep\u00e7\u00e3o",
+      cognicao: "Cogni\u00e7\u00e3o",
+      juizo_critico: "Ju\u00edzo Cr\u00edtico",
+    };
+
+    for (const [key, label] of Object.entries(eemFieldNames)) {
+      const val = data.eem_student[key] || "\u2014";
+      if (val === "\u2014") continue;
+      checkPage(12);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(...darkText);
+      doc.setFontSize(9);
+      doc.text(`${label}:`, margin + 2, y);
+      y += 4;
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(...grayText);
+      const valLines = doc.splitTextToSize(val, contentW - 6);
+      doc.text(valLines, margin + 4, y);
+      y += valLines.length * 4 + 3;
+    }
+
+    if (data.eem_evaluation && data.eem_evaluation.comentario) {
+      y += 4;
+      checkPage(20);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(...darkText);
+      doc.setFontSize(10);
+      doc.text("Avalia\u00e7\u00e3o do EEM:", margin, y);
+      y += 5;
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(...grayText);
+      doc.setFontSize(9);
+      const evalLines = doc.splitTextToSize(data.eem_evaluation.comentario, contentW - 4);
+      evalLines.forEach(line => {
+        checkPage(5);
+        doc.text(line, margin + 2, y);
+        y += 4;
+      });
+    }
+  } else {
+    y += 6;
+    checkPage(20);
+    doc.setTextColor(...blue);
+    doc.setFontSize(13);
+    doc.setFont("helvetica", "bold");
+    doc.text("Exame do Estado Mental (EEM)", margin, y);
+    y += 2;
+    doc.line(margin, y, margin + contentW, y);
+    y += 8;
+    doc.setFont("helvetica", "italic");
+    doc.setTextColor(...grayText);
+    doc.setFontSize(10);
+    doc.text("N\u00e3o realizado nesta simula\u00e7\u00e3o.", margin + 2, y);
+    y += 6;
   }
 
   // ── Footer ──
