@@ -299,6 +299,10 @@
     align-self: flex-start;
     border-bottom-left-radius: 4px;
   }
+  .message.patient .behavior {
+    color: #2563eb;
+    font-style: italic;
+  }
   .message.student {
     background: var(--student-bg);
     color: var(--student-text);
@@ -1672,7 +1676,7 @@
       </svg>
     </div>
     <h2>Simulação Concluída</h2>
-    <p>Obrigado por participar! Escolha uma opção abaixo.</p>
+    <p>Para melhoria contínua do PSIQMENTOR, queremos saber da sua opinião. Antes de gerar o relatório, responda à nossa pesquisa.</p>
     <div class="post-actions">
       <button class="btn btn-primary" id="goSurveyBtn">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -2093,7 +2097,13 @@ messageInput.addEventListener("input", () => autoResize(messageInput));
 function addMessage(type, text) {
   const div = document.createElement("div");
   div.classList.add("message", type);
-  div.textContent = text;
+  if (type === "patient") {
+    // Render *behavior* in blue italic for patient messages
+    div.innerHTML = text.replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/\*([^*]+)\*/g, '<span class="behavior">$1</span>');
+  } else {
+    div.textContent = text;
+  }
   messagesContainer.insertBefore(div, typingIndicator);
   messagesContainer.scrollTop = messagesContainer.scrollHeight;
 }
