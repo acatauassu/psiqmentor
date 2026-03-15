@@ -834,6 +834,77 @@
     margin: 0 0 18px 0;
   }
 
+  /* NPS Section */
+  .nps-section {
+    margin-bottom: 12px;
+  }
+  .nps-question {
+    background: var(--surface);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 18px;
+    border: 2px solid transparent;
+    transition: border-color .2s;
+  }
+  .nps-question.error {
+    border-color: #ef4444;
+  }
+  .nps-question .q-text {
+    font-size: 14.5px;
+    line-height: 1.6;
+    margin-bottom: 16px;
+    color: var(--text-primary);
+  }
+  .nps-question .q-num {
+    font-weight: 700;
+    color: var(--accent);
+    margin-right: 6px;
+  }
+  .nps-options {
+    display: flex;
+    gap: 6px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .nps-options label {
+    cursor: pointer;
+  }
+  .nps-options label input[type="radio"] {
+    display: none;
+  }
+  .nps-circle {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    background: var(--bg);
+    transition: all .2s;
+  }
+  .nps-options label:hover .nps-circle {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .nps-options label input[type="radio"]:checked + .nps-circle {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(99, 102, 241, .35);
+  }
+  .nps-anchors {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 8px;
+    font-size: 11px;
+    color: var(--text-muted);
+    padding: 0 4px;
+  }
+
   /* Survey actions */
   .survey-actions {
     display: flex;
@@ -1095,6 +1166,8 @@
     .likert-options { gap: 4px; }
     .likert-options label .radio-circle { width: 30px; height: 30px; font-size: 12px; }
     .likert-options label .radio-label { font-size: 10px; }
+    .nps-circle { width: 32px; height: 32px; font-size: 12px; }
+    .nps-options { gap: 4px; }
     .survey-actions { flex-direction: column; }
     .survey-actions .btn { width: 100%; }
     .admin-dashboard { padding: 16px; }
@@ -1684,6 +1757,17 @@
       <div id="adminSurveyTable"></div>
     </div>
 
+    <!-- NPS Analysis Section -->
+    <div class="admin-section" id="npsAnalysisSection">
+      <h3>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-6"/></svg>
+        Análise NPS — Net Promoter Score
+      </h3>
+      <div id="npsAnalysisContent">
+        <div class="admin-empty">Carregando análise NPS...</div>
+      </div>
+    </div>
+
     <!-- SUS Analysis Section -->
     <div class="admin-section" id="susAnalysisSection">
       <h3>
@@ -1913,166 +1997,63 @@
 <!-- ═══ Survey Screen ════════════════════════════════════════════ -->
 <div id="survey-screen" class="screen">
   <div class="survey-card">
-    <h2>Pesquisa de Satisfação</h2>
+    <h2>Pesquisa de Avaliação</h2>
 
     <!-- Form content (hidden when success shown) -->
     <div class="survey-form-content" id="surveyFormContent">
       <div class="survey-desc">
-        Você está sendo convidado(a) a responder esta pesquisa sobre sua experiência em realizar uma consulta psiquiátrica simulada com paciente de inteligência artificial, representando um quadro de transtorno de ansiedade. O objetivo é avaliar a sua percepção sobre a utilidade pedagógica, o realismo e a contribuição dessa atividade para o aprendizado da entrevista psiquiátrica. O preenchimento leva cerca de 3 a 5 minutos. Suas respostas serão analisadas de forma conjunta, sem identificação individual.
-      </div>
-
-      <p class="survey-instruction">
-        Considere sua experiência na consulta psiquiátrica simulada com paciente de IA. Marque o quanto você concorda com cada afirmação abaixo.
-      </p>
-
-      <div class="scale-legend">
-        <span><strong>1</strong> = Discordo totalmente</span>
-        <span class="sep">·</span>
-        <span><strong>2</strong> = Discordo parcialmente</span>
-        <span class="sep">·</span>
-        <span><strong>3</strong> = Nem concordo nem discordo</span>
-        <span class="sep">·</span>
-        <span><strong>4</strong> = Concordo parcialmente</span>
-        <span class="sep">·</span>
-        <span><strong>5</strong> = Concordo totalmente</span>
+        Você está sendo convidado(a) a responder esta breve pesquisa sobre sua experiência com o PsiqMentor. A pesquisa é composta por duas partes: <strong>Parte 1 — Avaliação Geral (NPS)</strong>, com 2 perguntas sobre satisfação e recomendação, e <strong>Parte 2 — Usabilidade (SUS)</strong>, com 10 afirmações sobre a facilidade de uso da ferramenta. O preenchimento leva cerca de 2 a 3 minutos. Suas respostas serão analisadas de forma conjunta, sem identificação individual.
       </div>
 
       <form id="surveyForm">
-        <!-- Q1 -->
-        <div class="likert-question" id="q1-block" data-q="Q1">
-          <div class="q-text"><span class="q-num">1.</span> A simulação com paciente de IA me ajudou a treinar a abordagem inicial e o acolhimento em uma consulta psiquiátrica.</div>
-          <div class="likert-options">
-            <label><input type="radio" name="Q1" value="1"><div class="radio-circle">1</div><div class="radio-label">Discordo totalmente</div></label>
-            <label><input type="radio" name="Q1" value="2"><div class="radio-circle">2</div><div class="radio-label">Discordo parcialmente</div></label>
-            <label><input type="radio" name="Q1" value="3"><div class="radio-circle">3</div><div class="radio-label">Nem concor. nem discor.</div></label>
-            <label><input type="radio" name="Q1" value="4"><div class="radio-circle">4</div><div class="radio-label">Concordo parcialmente</div></label>
-            <label><input type="radio" name="Q1" value="5"><div class="radio-circle">5</div><div class="radio-label">Concordo totalmente</div></label>
+
+        <!-- ═══ PARTE 1 — NPS (Net Promoter Score) ═══ -->
+        <div class="nps-section">
+          <h3 class="sus-title">Parte 1 — Avaliação Geral (NPS)</h3>
+          <p class="sus-desc">Avalie o PsiqMentor com uma nota de 0 a 10.</p>
+
+          <!-- NPS1: Nota sobre o produto -->
+          <div class="nps-question" id="nps1-block" data-q="NPS1">
+            <div class="q-text"><span class="q-num">1.</span> Qual nota de 0 a 10 você daria ao PsiqMentor como ferramenta de apoio ao ensino em Psiquiatria?</div>
+            <div class="nps-options">
+              <label><input type="radio" name="NPS1" value="0"><div class="nps-circle">0</div></label>
+              <label><input type="radio" name="NPS1" value="1"><div class="nps-circle">1</div></label>
+              <label><input type="radio" name="NPS1" value="2"><div class="nps-circle">2</div></label>
+              <label><input type="radio" name="NPS1" value="3"><div class="nps-circle">3</div></label>
+              <label><input type="radio" name="NPS1" value="4"><div class="nps-circle">4</div></label>
+              <label><input type="radio" name="NPS1" value="5"><div class="nps-circle">5</div></label>
+              <label><input type="radio" name="NPS1" value="6"><div class="nps-circle">6</div></label>
+              <label><input type="radio" name="NPS1" value="7"><div class="nps-circle">7</div></label>
+              <label><input type="radio" name="NPS1" value="8"><div class="nps-circle">8</div></label>
+              <label><input type="radio" name="NPS1" value="9"><div class="nps-circle">9</div></label>
+              <label><input type="radio" name="NPS1" value="10"><div class="nps-circle">10</div></label>
+            </div>
+            <div class="nps-anchors"><span>Nada provável</span><span>Extremamente provável</span></div>
+          </div>
+
+          <!-- NPS2: Recomendaria -->
+          <div class="nps-question" id="nps2-block" data-q="NPS2">
+            <div class="q-text"><span class="q-num">2.</span> Em uma escala de 0 a 10, o quanto você recomendaria o PsiqMentor para um colega ou outra instituição de ensino?</div>
+            <div class="nps-options">
+              <label><input type="radio" name="NPS2" value="0"><div class="nps-circle">0</div></label>
+              <label><input type="radio" name="NPS2" value="1"><div class="nps-circle">1</div></label>
+              <label><input type="radio" name="NPS2" value="2"><div class="nps-circle">2</div></label>
+              <label><input type="radio" name="NPS2" value="3"><div class="nps-circle">3</div></label>
+              <label><input type="radio" name="NPS2" value="4"><div class="nps-circle">4</div></label>
+              <label><input type="radio" name="NPS2" value="5"><div class="nps-circle">5</div></label>
+              <label><input type="radio" name="NPS2" value="6"><div class="nps-circle">6</div></label>
+              <label><input type="radio" name="NPS2" value="7"><div class="nps-circle">7</div></label>
+              <label><input type="radio" name="NPS2" value="8"><div class="nps-circle">8</div></label>
+              <label><input type="radio" name="NPS2" value="9"><div class="nps-circle">9</div></label>
+              <label><input type="radio" name="NPS2" value="10"><div class="nps-circle">10</div></label>
+            </div>
+            <div class="nps-anchors"><span>Nada provável</span><span>Extremamente provável</span></div>
           </div>
         </div>
 
-        <!-- Q2 -->
-        <div class="likert-question" id="q2-block" data-q="Q2">
-          <div class="q-text"><span class="q-num">2.</span> A experiência contribuiu para que eu percebesse melhor a importância de estabelecer rapport e vínculo logo no início da entrevista.</div>
-          <div class="likert-options">
-            <label><input type="radio" name="Q2" value="1"><div class="radio-circle">1</div><div class="radio-label">Discordo totalmente</div></label>
-            <label><input type="radio" name="Q2" value="2"><div class="radio-circle">2</div><div class="radio-label">Discordo parcialmente</div></label>
-            <label><input type="radio" name="Q2" value="3"><div class="radio-circle">3</div><div class="radio-label">Nem concor. nem discor.</div></label>
-            <label><input type="radio" name="Q2" value="4"><div class="radio-circle">4</div><div class="radio-label">Concordo parcialmente</div></label>
-            <label><input type="radio" name="Q2" value="5"><div class="radio-circle">5</div><div class="radio-label">Concordo totalmente</div></label>
-          </div>
-        </div>
-
-        <!-- Q3 -->
-        <div class="likert-question" id="q3-block" data-q="Q3">
-          <div class="q-text"><span class="q-num">3.</span> A atividade me ajudou a organizar melhor a sequência lógica da consulta psiquiátrica, sem pular etapas importantes.</div>
-          <div class="likert-options">
-            <label><input type="radio" name="Q3" value="1"><div class="radio-circle">1</div><div class="radio-label">Discordo totalmente</div></label>
-            <label><input type="radio" name="Q3" value="2"><div class="radio-circle">2</div><div class="radio-label">Discordo parcialmente</div></label>
-            <label><input type="radio" name="Q3" value="3"><div class="radio-circle">3</div><div class="radio-label">Nem concor. nem discor.</div></label>
-            <label><input type="radio" name="Q3" value="4"><div class="radio-circle">4</div><div class="radio-label">Concordo parcialmente</div></label>
-            <label><input type="radio" name="Q3" value="5"><div class="radio-circle">5</div><div class="radio-label">Concordo totalmente</div></label>
-          </div>
-        </div>
-
-        <!-- Q4 -->
-        <div class="likert-question" id="q4-block" data-q="Q4">
-          <div class="q-text"><span class="q-num">4.</span> A simulação favoreceu meu treinamento para investigar os sintomas ansiosos com mais profundidade, incluindo tempo de evolução, desencadeantes e impacto funcional.</div>
-          <div class="likert-options">
-            <label><input type="radio" name="Q4" value="1"><div class="radio-circle">1</div><div class="radio-label">Discordo totalmente</div></label>
-            <label><input type="radio" name="Q4" value="2"><div class="radio-circle">2</div><div class="radio-label">Discordo parcialmente</div></label>
-            <label><input type="radio" name="Q4" value="3"><div class="radio-circle">3</div><div class="radio-label">Nem concor. nem discor.</div></label>
-            <label><input type="radio" name="Q4" value="4"><div class="radio-circle">4</div><div class="radio-label">Concordo parcialmente</div></label>
-            <label><input type="radio" name="Q4" value="5"><div class="radio-circle">5</div><div class="radio-label">Concordo totalmente</div></label>
-          </div>
-        </div>
-
-        <!-- Q5 -->
-        <div class="likert-question" id="q5-block" data-q="Q5">
-          <div class="q-text"><span class="q-num">5.</span> A experiência me ajudou a compreender melhor a diferença entre perguntas abertas e perguntas excessivamente fechadas ou mecânicas.</div>
-          <div class="likert-options">
-            <label><input type="radio" name="Q5" value="1"><div class="radio-circle">1</div><div class="radio-label">Discordo totalmente</div></label>
-            <label><input type="radio" name="Q5" value="2"><div class="radio-circle">2</div><div class="radio-label">Discordo parcialmente</div></label>
-            <label><input type="radio" name="Q5" value="3"><div class="radio-circle">3</div><div class="radio-label">Nem concor. nem discor.</div></label>
-            <label><input type="radio" name="Q5" value="4"><div class="radio-circle">4</div><div class="radio-label">Concordo parcialmente</div></label>
-            <label><input type="radio" name="Q5" value="5"><div class="radio-circle">5</div><div class="radio-label">Concordo totalmente</div></label>
-          </div>
-        </div>
-
-        <!-- Q6 -->
-        <div class="likert-question" id="q6-block" data-q="Q6">
-          <div class="q-text"><span class="q-num">6.</span> A atividade contribuiu para meu aprendizado sobre como abordar temas sensíveis, como sofrimento emocional e pensamentos de morte, de forma mais cuidadosa e adequada.</div>
-          <div class="likert-options">
-            <label><input type="radio" name="Q6" value="1"><div class="radio-circle">1</div><div class="radio-label">Discordo totalmente</div></label>
-            <label><input type="radio" name="Q6" value="2"><div class="radio-circle">2</div><div class="radio-label">Discordo parcialmente</div></label>
-            <label><input type="radio" name="Q6" value="3"><div class="radio-circle">3</div><div class="radio-label">Nem concor. nem discor.</div></label>
-            <label><input type="radio" name="Q6" value="4"><div class="radio-circle">4</div><div class="radio-label">Concordo parcialmente</div></label>
-            <label><input type="radio" name="Q6" value="5"><div class="radio-circle">5</div><div class="radio-label">Concordo totalmente</div></label>
-          </div>
-        </div>
-
-        <!-- Q7 -->
-        <div class="likert-question" id="q7-block" data-q="Q7">
-          <div class="q-text"><span class="q-num">7.</span> A simulação me ajudou a perceber a importância de observar e investigar elementos do Exame do Estado Mental durante a entrevista.</div>
-          <div class="likert-options">
-            <label><input type="radio" name="Q7" value="1"><div class="radio-circle">1</div><div class="radio-label">Discordo totalmente</div></label>
-            <label><input type="radio" name="Q7" value="2"><div class="radio-circle">2</div><div class="radio-label">Discordo parcialmente</div></label>
-            <label><input type="radio" name="Q7" value="3"><div class="radio-circle">3</div><div class="radio-label">Nem concor. nem discor.</div></label>
-            <label><input type="radio" name="Q7" value="4"><div class="radio-circle">4</div><div class="radio-label">Concordo parcialmente</div></label>
-            <label><input type="radio" name="Q7" value="5"><div class="radio-circle">5</div><div class="radio-label">Concordo totalmente</div></label>
-          </div>
-        </div>
-
-        <!-- Q8 -->
-        <div class="likert-question" id="q8-block" data-q="Q8">
-          <div class="q-text"><span class="q-num">8.</span> O caso clínico simulado apresentou realismo suficiente para tornar a experiência relevante para minha formação em Psiquiatria.</div>
-          <div class="likert-options">
-            <label><input type="radio" name="Q8" value="1"><div class="radio-circle">1</div><div class="radio-label">Discordo totalmente</div></label>
-            <label><input type="radio" name="Q8" value="2"><div class="radio-circle">2</div><div class="radio-label">Discordo parcialmente</div></label>
-            <label><input type="radio" name="Q8" value="3"><div class="radio-circle">3</div><div class="radio-label">Nem concor. nem discor.</div></label>
-            <label><input type="radio" name="Q8" value="4"><div class="radio-circle">4</div><div class="radio-label">Concordo parcialmente</div></label>
-            <label><input type="radio" name="Q8" value="5"><div class="radio-circle">5</div><div class="radio-label">Concordo totalmente</div></label>
-          </div>
-        </div>
-
-        <!-- Q9 -->
-        <div class="likert-question" id="q9-block" data-q="Q9">
-          <div class="q-text"><span class="q-num">9.</span> Após essa experiência, sinto-me mais preparado(a) para conduzir uma anamnese psiquiátrica inicial em contexto de ensino supervisionado.</div>
-          <div class="likert-options">
-            <label><input type="radio" name="Q9" value="1"><div class="radio-circle">1</div><div class="radio-label">Discordo totalmente</div></label>
-            <label><input type="radio" name="Q9" value="2"><div class="radio-circle">2</div><div class="radio-label">Discordo parcialmente</div></label>
-            <label><input type="radio" name="Q9" value="3"><div class="radio-circle">3</div><div class="radio-label">Nem concor. nem discor.</div></label>
-            <label><input type="radio" name="Q9" value="4"><div class="radio-circle">4</div><div class="radio-label">Concordo parcialmente</div></label>
-            <label><input type="radio" name="Q9" value="5"><div class="radio-circle">5</div><div class="radio-label">Concordo totalmente</div></label>
-          </div>
-        </div>
-
-        <!-- Q10 -->
-        <div class="likert-question" id="q10-block" data-q="Q10">
-          <div class="q-text"><span class="q-num">10.</span> Considero que o uso de pacientes simulados por IA é uma estratégia válida e útil para o ensino de entrevista psiquiátrica na graduação em Medicina.</div>
-          <div class="likert-options">
-            <label><input type="radio" name="Q10" value="1"><div class="radio-circle">1</div><div class="radio-label">Discordo totalmente</div></label>
-            <label><input type="radio" name="Q10" value="2"><div class="radio-circle">2</div><div class="radio-label">Discordo parcialmente</div></label>
-            <label><input type="radio" name="Q10" value="3"><div class="radio-circle">3</div><div class="radio-label">Nem concor. nem discor.</div></label>
-            <label><input type="radio" name="Q10" value="4"><div class="radio-circle">4</div><div class="radio-label">Concordo parcialmente</div></label>
-            <label><input type="radio" name="Q10" value="5"><div class="radio-circle">5</div><div class="radio-label">Concordo totalmente</div></label>
-          </div>
-        </div>
-
-        <!-- Q11 (open) -->
-        <div class="open-question">
-          <div class="q-text"><span class="q-num">11.</span> Na sua opinião, qual foi a principal contribuição dessa consulta simulada com IA para o seu aprendizado? <em style="color:var(--text-muted);font-weight:400;">(opcional)</em></div>
-          <textarea id="surveyQ11" name="Q11" placeholder="Escreva sua resposta..."></textarea>
-        </div>
-
-        <!-- Q12 (open) -->
-        <div class="open-question">
-          <div class="q-text"><span class="q-num">12.</span> O que poderia ser melhorado nessa experiência para torná-la mais útil na formação médica? <em style="color:var(--text-muted);font-weight:400;">(opcional)</em></div>
-          <textarea id="surveyQ12" name="Q12" placeholder="Escreva sua resposta..."></textarea>
-        </div>
-
-        <!-- ═══ SUS — System Usability Scale ═══ -->
+        <!-- ═══ PARTE 2 — SUS — System Usability Scale ═══ -->
         <div class="sus-section">
-          <h3 class="sus-title">Avaliação de Usabilidade (SUS)</h3>
+          <h3 class="sus-title">Parte 2 — Usabilidade (SUS)</h3>
           <p class="sus-desc">
             Agora, avalie a usabilidade do PsiqMentor como ferramenta. Responda com base na sua experiência de uso, considerando interface, navegação e facilidade geral.
           </p>
@@ -2652,12 +2633,12 @@ surveyBackBtn.addEventListener("click", () => {
 surveyForm.addEventListener("submit", async (e) => {
   e.preventDefault();
 
-  // Validate: all 10 Likert + 10 SUS questions required
-  const requiredQs = ["Q1","Q2","Q3","Q4","Q5","Q6","Q7","Q8","Q9","Q10"];
+  // Validate: NPS1, NPS2 + 10 SUS questions required
+  const requiredNPS = ["NPS1","NPS2"];
   const requiredSUS = ["SUS1","SUS2","SUS3","SUS4","SUS5","SUS6","SUS7","SUS8","SUS9","SUS10"];
   let valid = true;
 
-  requiredQs.forEach(q => {
+  requiredNPS.forEach(q => {
     const block = document.getElementById(q.toLowerCase() + "-block");
     const checked = surveyForm.querySelector(`input[name="${q}"]:checked`);
     if (!checked) {
@@ -2681,14 +2662,14 @@ surveyForm.addEventListener("submit", async (e) => {
 
   if (!valid) {
     // Scroll to first error
-    const firstError = document.querySelector(".likert-question.error");
+    const firstError = document.querySelector(".nps-question.error, .likert-question.error");
     if (firstError) firstError.scrollIntoView({ behavior: "smooth", block: "center" });
     return;
   }
 
   // Build responses object
   const responses = {};
-  requiredQs.forEach(q => {
+  requiredNPS.forEach(q => {
     const checked = surveyForm.querySelector(`input[name="${q}"]:checked`);
     responses[q] = parseInt(checked.value, 10);
   });
@@ -2696,10 +2677,6 @@ surveyForm.addEventListener("submit", async (e) => {
     const checked = surveyForm.querySelector(`input[name="${q}"]:checked`);
     responses[q] = parseInt(checked.value, 10);
   });
-  const q11 = document.getElementById("surveyQ11").value.trim();
-  const q12 = document.getElementById("surveyQ12").value.trim();
-  if (q11) responses["Q11"] = q11;
-  if (q12) responses["Q12"] = q12;
 
   // Disable submit button while sending
   surveySubmitBtn.disabled = true;
@@ -3369,24 +3346,91 @@ async function loadAdminDashboard() {
     } else {
       let html = '<div class="admin-table-wrap"><table class="admin-table"><thead><tr>';
       html += '<th>Data</th><th>Transtorno</th>';
-      for (let i = 1; i <= 10; i++) html += `<th>Q${i}</th>`;
-      html += '<th>Q11</th><th>Q12</th>';
-      for (let i = 1; i <= 10; i++) html += `<th style="color:var(--accent)">S${i}</th>`;
+      html += '<th style="color:var(--accent)">NPS1</th><th style="color:var(--accent)">NPS2</th>';
+      for (let i = 1; i <= 10; i++) html += `<th>S${i}</th>`;
+      html += '<th style="color:var(--accent)">SUS Score</th>';
       html += '</tr></thead><tbody>';
 
       surveys.forEach(s => {
         const ts = s.timestamp ? new Date(s.timestamp).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : "--";
         const resp = s.responses || {};
         html += `<tr><td>${ts}</td><td>${s.transtorno || "--"}</td>`;
-        for (let i = 1; i <= 10; i++) html += `<td>${resp["Q" + i] ?? "--"}</td>`;
-        html += `<td style="max-width:150px;overflow:hidden;text-overflow:ellipsis">${resp.Q11 || "--"}</td>`;
-        html += `<td style="max-width:150px;overflow:hidden;text-overflow:ellipsis">${resp.Q12 || "--"}</td>`;
+        html += `<td style="font-weight:600;color:var(--accent)">${resp.NPS1 ?? "--"}</td>`;
+        html += `<td style="font-weight:600;color:var(--accent)">${resp.NPS2 ?? "--"}</td>`;
         for (let i = 1; i <= 10; i++) html += `<td>${resp["SUS" + i] ?? "--"}</td>`;
+        // Calculate SUS score inline
+        const susVals = [];
+        for (let i = 1; i <= 10; i++) { const v = resp["SUS" + i]; if (v != null) susVals.push(parseInt(v)); }
+        if (susVals.length === 10) {
+          const oddSum = [0,2,4,6,8].reduce((a, i) => a + (susVals[i] - 1), 0);
+          const evenSum = [1,3,5,7,9].reduce((a, i) => a + (5 - susVals[i]), 0);
+          const score = ((oddSum + evenSum) * 2.5).toFixed(1);
+          html += `<td style="font-weight:700;color:var(--accent)">${score}</td>`;
+        } else {
+          html += '<td>--</td>';
+        }
         html += '</tr>';
       });
 
       html += '</tbody></table></div>';
       tableEl.innerHTML = html;
+    }
+
+    // ─── NPS Analysis (client-side) ───────────────────
+    try {
+      const npsEl = document.getElementById("npsAnalysisContent");
+      const npsData = surveys.filter(s => s.responses && s.responses.NPS1 != null && s.responses.NPS2 != null);
+      if (npsData.length === 0) {
+        npsEl.innerHTML = '<div class="admin-empty">Nenhuma resposta NPS registrada ainda</div>';
+      } else {
+        const nps1Vals = npsData.map(s => parseInt(s.responses.NPS1));
+        const nps2Vals = npsData.map(s => parseInt(s.responses.NPS2));
+        const avg1 = (nps1Vals.reduce((a,b) => a+b, 0) / nps1Vals.length).toFixed(1);
+        const avg2 = (nps2Vals.reduce((a,b) => a+b, 0) / nps2Vals.length).toFixed(1);
+        const promoters = nps2Vals.filter(v => v >= 9).length;
+        const passives = nps2Vals.filter(v => v >= 7 && v <= 8).length;
+        const detractors = nps2Vals.filter(v => v <= 6).length;
+        const npsScore = Math.round(((promoters - detractors) / nps2Vals.length) * 100);
+        let npsClass = 'Cr\u00edtico'; let npsColor = '#ef4444';
+        if (npsScore >= 75) { npsClass = 'Excelente'; npsColor = '#22c55e'; }
+        else if (npsScore >= 50) { npsClass = 'Muito Bom'; npsColor = '#84cc16'; }
+        else if (npsScore >= 0) { npsClass = 'Razo\u00e1vel'; npsColor = '#eab308'; }
+
+        let nhtml = '';
+        nhtml += '<div class="sus-summary-grid">';
+        nhtml += `<div class="sus-stat-card"><div class="stat-label">Respondentes</div><div class="stat-value">${npsData.length}</div></div>`;
+        nhtml += `<div class="sus-stat-card"><div class="stat-label">M\u00e9dia NPS1 (Produto)</div><div class="stat-value">${avg1}</div><div class="stat-sub">de 10</div></div>`;
+        nhtml += `<div class="sus-stat-card"><div class="stat-label">M\u00e9dia NPS2 (Recomen.)</div><div class="stat-value">${avg2}</div><div class="stat-sub">de 10</div></div>`;
+        nhtml += `<div class="sus-stat-card"><div class="stat-label">NPS Score</div><div class="stat-value"><span class="sus-grade-badge" style="background:${npsColor}">${npsScore}</span></div><div class="stat-sub">${npsClass}</div></div>`;
+        nhtml += `<div class="sus-stat-card"><div class="stat-label">Promotores (9-10)</div><div class="stat-value" style="color:#22c55e">${promoters}</div><div class="stat-sub">${Math.round(promoters/npsData.length*100)}%</div></div>`;
+        nhtml += `<div class="sus-stat-card"><div class="stat-label">Passivos (7-8)</div><div class="stat-value" style="color:#eab308">${passives}</div><div class="stat-sub">${Math.round(passives/npsData.length*100)}%</div></div>`;
+        nhtml += `<div class="sus-stat-card"><div class="stat-label">Detratores (0-6)</div><div class="stat-value" style="color:#ef4444">${detractors}</div><div class="stat-sub">${Math.round(detractors/npsData.length*100)}%</div></div>`;
+        nhtml += '</div>';
+
+        nhtml += '<div class="sus-chart-container">';
+        nhtml += '<h4>Distribui\u00e7\u00e3o de Notas \u2014 Recomenda\u00e7\u00e3o (NPS2)</h4>';
+        nhtml += '<div class="sus-bar-chart">';
+        for (let v = 0; v <= 10; v++) {
+          const count = nps2Vals.filter(x => x === v).length;
+          const pct = npsData.length > 0 ? Math.max(5, (count / npsData.length) * 100) : 5;
+          let color = '#ef4444';
+          if (v >= 9) color = '#22c55e';
+          else if (v >= 7) color = '#eab308';
+          nhtml += `<div class="sus-bar">`;
+          nhtml += `<div class="bar-score">${count}</div>`;
+          nhtml += `<div class="bar-fill" style="height:${count > 0 ? pct : 5}%;background:${color}" title="Nota ${v}: ${count} respondente(s)"></div>`;
+          nhtml += `<div class="bar-label">${v}</div>`;
+          nhtml += '</div>';
+        }
+        nhtml += '</div>';
+        nhtml += '<div style="margin-top:8px;font-size:11px;color:var(--text-muted)">';
+        nhtml += '<span style="color:#22c55e">\u25cf Promotores (9-10)</span> \u00b7 <span style="color:#eab308">\u25cf Passivos (7-8)</span> \u00b7 <span style="color:#ef4444">\u25cf Detratores (0-6)</span>';
+        nhtml += '</div></div>';
+
+        npsEl.innerHTML = nhtml;
+      }
+    } catch (npsErr) {
+      console.error("Erro ao processar NPS:", npsErr);
     }
 
     // ─── SUS Analysis ─────────────────────────────────

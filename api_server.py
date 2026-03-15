@@ -672,7 +672,7 @@ class FinishRequest(BaseModel):
 
 class SurveyRequest(BaseModel):
     session_id: str
-    responses: dict  # Q1-Q10 (int 1-5), Q11-Q12 (str), SUS1-SUS10 (int 1-5)
+    responses: dict  # NPS1 (int 0-10), NPS2 (int 0-10), SUS1-SUS10 (int 1-5)
 
 
 class EEMRequest(BaseModel):
@@ -949,8 +949,7 @@ def export_surveys():
 
     output = io.StringIO()
     fieldnames = ["timestamp", "session_id", "transtorno",
-                  "Q1", "Q2", "Q3", "Q4", "Q5", "Q6", "Q7", "Q8", "Q9", "Q10",
-                  "Q11", "Q12",
+                  "NPS1", "NPS2",
                   "SUS1", "SUS2", "SUS3", "SUS4", "SUS5", "SUS6", "SUS7", "SUS8", "SUS9", "SUS10",
                   "SUS_Score"]
     writer = csv.DictWriter(output, fieldnames=fieldnames)
@@ -963,7 +962,7 @@ def export_surveys():
             "transtorno": s.get("transtorno", ""),
         }
         responses = s.get("responses", {})
-        for q in ["Q1", "Q2", "Q3", "Q4", "Q5", "Q6", "Q7", "Q8", "Q9", "Q10", "Q11", "Q12"]:
+        for q in ["NPS1", "NPS2"]:
             row[q] = responses.get(q, "")
         for q in ["SUS1", "SUS2", "SUS3", "SUS4", "SUS5", "SUS6", "SUS7", "SUS8", "SUS9", "SUS10"]:
             row[q] = responses.get(q, "")
@@ -1129,7 +1128,7 @@ def admin_dashboard(token: str = Query(...)):
 
     return {
         "health": {
-            "version": "v4.4-SUS",
+            "version": "v4.5-NPS-SUS",
             "anthropic_key_set": has_key,
             "active_sessions": len(sessions),
             "total_sessions": total_sessions,
@@ -1202,7 +1201,7 @@ def health():
     has_key = bool(os.environ.get("ANTHROPIC_API_KEY"))
     return {
         "status": "ok",
-        "version": "v4.4-SUS",
+        "version": "v4.5-NPS-SUS",
         "active_sessions": len(sessions),
         "anthropic_key_set": has_key,
     }
