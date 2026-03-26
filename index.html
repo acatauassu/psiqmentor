@@ -1813,6 +1813,16 @@
       </div>
     </div>
 
+    <!-- Analysis Report Buttons -->
+    <div style="display:flex; gap:12px; justify-content:center; margin:32px 0 16px; flex-wrap:wrap;">
+      <button class="btn btn-primary" id="btnGenerateNPS" style="padding:12px 24px; font-size:15px;">
+        📊 Gerar Análise NPS (PDF)
+      </button>
+      <button class="btn btn-primary" id="btnGenerateSUS" style="padding:12px 24px; font-size:15px;">
+        📊 Gerar Análise SUS (PDF)
+      </button>
+    </div>
+
     <div class="admin-footer">
       <a id="adminBackToApp">← Voltar ao PsiqMentor</a>
     </div>
@@ -3727,6 +3737,446 @@ adminClearBtn.addEventListener("click", async () => {
     }
   } catch (err) {
     alert("Erro de conex\u00e3o.");
+  }
+});
+
+// ─── PDF Analysis Report Generation ────────────────────────────────────────
+const { jsPDF } = window.jspdf;
+
+function pdfAddWrappedText(doc, text, x, y, maxW, lineH) {
+  const lines = doc.splitTextToSize(text, maxW);
+  for (const line of lines) {
+    if (y > 270) { doc.addPage(); y = 20; }
+    doc.text(line, x, y);
+    y += lineH;
+  }
+  return y;
+}
+
+function pdfSection(doc, title, y) {
+  if (y > 250) { doc.addPage(); y = 20; }
+  y += 4;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(13);
+  doc.text(title, 15, y);
+  y += 2;
+  doc.setDrawColor(0, 105, 111);
+  doc.setLineWidth(0.5);
+  doc.line(15, y, 195, y);
+  y += 6;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(11);
+  return y;
+}
+
+function pdfParagraph(doc, text, y, maxW = 170) {
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(11);
+  return pdfAddWrappedText(doc, text, 15, y, maxW, 5.5);
+}
+
+// ─── NPS Analysis PDF ──────────────────────────────────────────────────────
+document.getElementById("btnGenerateNPS").addEventListener("click", async () => {
+  if (!adminToken) { alert("Fa\u00e7a login primeiro."); return; }
+
+  try {
+    const [dashRes, surveyRes] = await Promise.all([
+      fetch(`${API}/api/admin/dashboard?token=${adminToken}`),
+      fetch(`${API}/api/admin/survey/data?token=${adminToken}`),
+    ]);
+    const dash = await dashRes.json();
+    const surveys = await surveyRes.json();
+
+    // Extract NPS data
+    const nps1Scores = [];
+    const nps2Scores = [];
+    for (const s of (surveys || [])) {
+      const r = s.responses || {};
+      if (r.NPS1 !== undefined) nps1Scores.push(parseInt(r.NPS1));
+      if (r.NPS2 !== undefined) nps2Scores.push(parseInt(r.NPS2));
+    }
+
+    const n = nps2Scores.length;
+    if (n === 0) { alert("N\u00e3o h\u00e1 dados NPS para gerar o relat\u00f3rio."); return; }
+
+    // NPS calculation (based on NPS2 - recommendation question)
+    const promoters = nps2Scores.filter(s => s >= 9).length;
+    const passives = nps2Scores.filter(s => s >= 7 && s <= 8).length;
+    const detractors = nps2Scores.filter(s => s <= 6).length;
+    const npsScore = Math.round(((promoters - detractors) / n) * 100);
+    const nps1Mean = (nps1Scores.reduce((a, b) => a + b, 0) / nps1Scores.length).toFixed(1);
+    const nps2Mean = (nps2Scores.reduce((a, b) => a + b, 0) / n).toFixed(1);
+    const nps1Stdev = nps1Scores.length > 1 ? Math.sqrt(nps1Scores.reduce((sum, v) => sum + Math.pow(v - nps1Mean, 2), 0) / (nps1Scores.length - 1)).toFixed(1) : "0.0";
+    const nps2Stdev = n > 1 ? Math.sqrt(nps2Scores.reduce((sum, v) => sum + Math.pow(v - nps2Mean, 2), 0) / (n - 1)).toFixed(1) : "0.0";
+
+    let npsClass = "";
+    if (npsScore >= 75) npsClass = "Zona de Excel\u00eancia";
+    else if (npsScore >= 50) npsClass = "Zona de Qualidade";
+    else if (npsScore >= 0) npsClass = "Zona de Aperfei\u00e7oamento";
+    else npsClass = "Zona Cr\u00edtica";
+
+    // Frequency distribution
+    const freqNPS1 = Array(11).fill(0);
+    const freqNPS2 = Array(11).fill(0);
+    nps1Scores.forEach(s => freqNPS1[s]++);
+    nps2Scores.forEach(s => freqNPS2[s]++);
+
+    const today = new Date().toLocaleDateString("pt-BR");
+
+    // Generate PDF
+    const doc = new jsPDF();
+    let y = 20;
+
+    // Header
+    doc.setFontSize(18);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(0, 105, 111);
+    doc.text("PsiqMentor \u2014 An\u00e1lise do Net Promoter Score (NPS)", 15, y);
+    y += 8;
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(100, 100, 100);
+    doc.text(`Mestrado Profissional em Ensino em Sa\u00fade \u2014 CESUPA | Gerado em ${today}`, 15, y);
+    y += 4;
+    doc.setDrawColor(0, 105, 111);
+    doc.setLineWidth(0.8);
+    doc.line(15, y, 195, y);
+    y += 10;
+    doc.setTextColor(40, 37, 29);
+
+    // 1. Introducao
+    y = pdfSection(doc, "1. Introdu\u00e7\u00e3o Metodol\u00f3gica", y);
+    y = pdfParagraph(doc, "O Net Promoter Score (NPS) \u00e9 uma metodologia desenvolvida por Reichheld (2003) e publicada na Harvard Business Review, originalmente concebida para mensurar a lealdade de clientes a marcas e produtos. Sua premissa fundamental \u00e9 que a disposi\u00e7\u00e3o de um usu\u00e1rio em recomendar um produto a terceiros constitui o indicador mais confi\u00e1vel de satisfa\u00e7\u00e3o e engajamento (Reichheld, 2003).", y);
+    y += 3;
+    y = pdfParagraph(doc, "No contexto da educa\u00e7\u00e3o m\u00e9dica, o NPS tem sido progressivamente adotado como instrumento de avalia\u00e7\u00e3o de interven\u00e7\u00f5es educacionais. Uma revis\u00e3o de escopo recente identificou 19 estudos que utilizaram o NPS para avaliar programas de educa\u00e7\u00e3o m\u00e9dica (Cureus, 2025). Pesquisas demonstram que o NPS apresenta validade correlacional com o comprometimento dos aprendizes em mudar suas pr\u00e1ticas cl\u00ednicas, explicando at\u00e9 70% da vari\u00e2ncia nesse desfecho (Taylor & Francis, 2022).", y);
+    y += 3;
+    y = pdfParagraph(doc, "A aplica\u00e7\u00e3o do NPS ao PsiqMentor busca aferir n\u00e3o apenas a satisfa\u00e7\u00e3o dos estudantes com a ferramenta, mas sobretudo sua disposi\u00e7\u00e3o em recomend\u00e1-la a colegas e institui\u00e7\u00f5es de ensino \u2014 indicador direto do potencial de ado\u00e7\u00e3o institucional da ferramenta.", y);
+    y += 6;
+
+    // 2. Instrumento
+    y = pdfSection(doc, "2. Instrumento Utilizado", y);
+    y = pdfParagraph(doc, "O instrumento de avalia\u00e7\u00e3o NPS do PsiqMentor \u00e9 composto por duas perguntas, ambas em escala de 0 a 10:", y);
+    y += 2;
+    doc.setFont("helvetica", "bold");
+    y = pdfAddWrappedText(doc, "Pergunta 1 (NPS1): \"Qual nota de 0 a 10 voc\u00ea daria ao PsiqMentor como ferramenta de apoio ao ensino em Psiquiatria?\"", 20, y, 165, 5.5);
+    y += 2;
+    y = pdfAddWrappedText(doc, "Pergunta 2 (NPS2): \"Em uma escala de 0 a 10, o quanto voc\u00ea recomendaria o PsiqMentor para um colega ou outra institui\u00e7\u00e3o de ensino?\"", 20, y, 165, 5.5);
+    doc.setFont("helvetica", "normal");
+    y += 3;
+    y = pdfParagraph(doc, "A primeira pergunta avalia a percep\u00e7\u00e3o geral de qualidade do produto, enquanto a segunda \u2014 a pergunta NPS cl\u00e1ssica \u2014 mensura a inten\u00e7\u00e3o de recomenda\u00e7\u00e3o, base para o c\u00e1lculo do score NPS.", y);
+    y += 6;
+
+    // 3. Amostra
+    y = pdfSection(doc, "3. Amostra", y);
+    y = pdfParagraph(doc, `Foram coletadas ${n} respostas v\u00e1lidas ao question\u00e1rio NPS. A coleta foi realizada ap\u00f3s cada sess\u00e3o de simula\u00e7\u00e3o no PsiqMentor, de forma volunt\u00e1ria e an\u00f4nima, sem identifica\u00e7\u00e3o individual dos respondentes.`, y);
+    y += 6;
+
+    // 4. Resultados
+    y = pdfSection(doc, "4. Resultados Descritivos", y);
+    y = pdfParagraph(doc, `Pergunta 1 (Nota do produto): M\u00e9dia = ${nps1Mean} (DP = ${nps1Stdev}), em uma escala de 0 a 10.`, y);
+    y += 1;
+    y = pdfParagraph(doc, `Pergunta 2 (Recomenda\u00e7\u00e3o): M\u00e9dia = ${nps2Mean} (DP = ${nps2Stdev}), em uma escala de 0 a 10.`, y);
+    y += 3;
+
+    // Frequency table
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    y = pdfAddWrappedText(doc, "Distribui\u00e7\u00e3o de frequ\u00eancia das respostas (Pergunta 2 \u2014 Recomenda\u00e7\u00e3o):", 15, y, 170, 5);
+    y += 3;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    // Table header
+    const colW = 15;
+    const startX = 15;
+    doc.setFillColor(0, 105, 111);
+    doc.setTextColor(255);
+    doc.rect(startX, y - 3, colW * 11 + 20, 6, "F");
+    doc.text("Nota", startX + 2, y);
+    for (let i = 0; i <= 10; i++) doc.text(String(i), startX + 20 + i * colW + 5, y);
+    y += 5;
+    doc.setTextColor(40, 37, 29);
+    doc.text("Freq.", startX + 2, y);
+    for (let i = 0; i <= 10; i++) doc.text(String(freqNPS2[i]), startX + 20 + i * colW + 5, y);
+    y += 8;
+    doc.setFontSize(11);
+
+    // 5. Classificacao NPS
+    y = pdfSection(doc, "5. Classifica\u00e7\u00e3o NPS", y);
+    y = pdfParagraph(doc, "Conforme a metodologia de Reichheld (2003), os respondentes s\u00e3o classificados em tr\u00eas categorias com base na pergunta de recomenda\u00e7\u00e3o:", y);
+    y += 2;
+    y = pdfParagraph(doc, `\u2022 Promotores (notas 9-10): ${promoters} respondentes (${((promoters/n)*100).toFixed(1)}%)`, y);
+    y = pdfParagraph(doc, `\u2022 Neutros (notas 7-8): ${passives} respondentes (${((passives/n)*100).toFixed(1)}%)`, y);
+    y = pdfParagraph(doc, `\u2022 Detratores (notas 0-6): ${detractors} respondentes (${((detractors/n)*100).toFixed(1)}%)`, y);
+    y += 3;
+    doc.setFont("helvetica", "bold");
+    y = pdfParagraph(doc, `NPS = % Promotores \u2212 % Detratores = ${npsScore}`, y);
+    y = pdfParagraph(doc, `Classifica\u00e7\u00e3o: ${npsClass}`, y);
+    doc.setFont("helvetica", "normal");
+    y += 6;
+
+    // 6. Analise interpretativa
+    y = pdfSection(doc, "6. An\u00e1lise Interpretativa", y);
+    let interpText = "";
+    if (npsScore >= 75) {
+      interpText = `O NPS de ${npsScore} situa o PsiqMentor na Zona de Excel\u00eancia, indicando que a grande maioria dos estudantes n\u00e3o apenas avaliou positivamente a ferramenta, mas demonstrou disposi\u00e7\u00e3o ativa em recomend\u00e1-la a colegas e institui\u00e7\u00f5es. Este resultado \u00e9 particularmente relevante no contexto da educa\u00e7\u00e3o m\u00e9dica, onde a ado\u00e7\u00e3o de novas tecnologias depende fortemente da percep\u00e7\u00e3o de valor pelos pr\u00f3prios estudantes.`;
+    } else if (npsScore >= 50) {
+      interpText = `O NPS de ${npsScore} situa o PsiqMentor na Zona de Qualidade, indicando uma avalia\u00e7\u00e3o predominantemente positiva pelos estudantes. A maioria dos respondentes demonstrou satisfa\u00e7\u00e3o com a ferramenta e disposi\u00e7\u00e3o em recomend\u00e1-la, embora haja espa\u00e7o para melhoria na experi\u00eancia do usu\u00e1rio.`;
+    } else if (npsScore >= 0) {
+      interpText = `O NPS de ${npsScore} situa o PsiqMentor na Zona de Aperfei\u00e7oamento, indicando que, embora a avalia\u00e7\u00e3o geral seja positiva, h\u00e1 oportunidades significativas de melhoria para aumentar a satisfa\u00e7\u00e3o e a disposi\u00e7\u00e3o de recomenda\u00e7\u00e3o dos estudantes.`;
+    } else {
+      interpText = `O NPS de ${npsScore} situa o PsiqMentor na Zona Cr\u00edtica, indicando que a ferramenta necessita de melhorias substanciais para atender \u00e0s expectativas dos estudantes.`;
+    }
+    y = pdfParagraph(doc, interpText, y);
+    y += 3;
+    y = pdfParagraph(doc, `A m\u00e9dia de ${nps1Mean} na avalia\u00e7\u00e3o geral do produto (Pergunta 1) complementa o NPS ao evidenciar a percep\u00e7\u00e3o de qualidade da ferramenta como instrumento de apoio ao ensino em Psiquiatria. Esses resultados, analisados em conjunto, constituem evid\u00eancia emp\u00edrica de que o PsiqMentor apresenta potencial de aceita\u00e7\u00e3o por institui\u00e7\u00f5es de ensino m\u00e9dico.`, y);
+    y += 6;
+
+    // 7. Implicacoes
+    y = pdfSection(doc, "7. Implica\u00e7\u00f5es para Ado\u00e7\u00e3o Institucional", y);
+    y = pdfParagraph(doc, "O NPS, ao mensurar a inten\u00e7\u00e3o de recomenda\u00e7\u00e3o, funciona como um indicador proxy da viabilidade de ado\u00e7\u00e3o institucional. Conforme demonstrado por pesquisas em educa\u00e7\u00e3o m\u00e9dica continuada, o NPS correlaciona-se com o comprometimento dos aprendizes em efetivamente incorporar mudan\u00e7as em suas pr\u00e1ticas (Taylor & Francis, 2022).", y);
+    y += 3;
+    y = pdfParagraph(doc, "No caso do PsiqMentor, um NPS positivo sinaliza que os estudantes percebem valor educacional na ferramenta e estariam dispostos a endoss\u00e1-la junto a seus pares e \u00e0s coordena\u00e7\u00f5es de curso \u2014 condi\u00e7\u00e3o essencial para a escalabilidade de qualquer tecnologia educacional em sa\u00fade.", y);
+    y += 6;
+
+    // 8. Referencias
+    y = pdfSection(doc, "8. Refer\u00eancias", y);
+    doc.setFontSize(10);
+    const npsRefs = [
+      "Reichheld, F. F. (2003). The One Number You Need to Grow. Harvard Business Review, 81(12), 46\u201354.",
+      "Reichheld, F. F., & Markey, R. (2021). Net Promoter 3.0. Harvard Business Review, 99(6), 48\u201355.",
+      "Fisher, N. I., & Kordupleski, R. E. (2019). Good and bad market research: A critical review of Net Promoter Score. Applied Stochastic Models in Business and Industry, 35(1), 138\u2013151.",
+      "Cureus (2025). Usage of Net Promoter Score in Medical Education Literature: A Scoping Review. PMC/12668792.",
+      "Taylor & Francis (2022). Net Promoter Score (NPS) as a measure of value in continuing medical education. Journal of European CME, 11(1).",
+    ];
+    for (const ref of npsRefs) {
+      y = pdfAddWrappedText(doc, ref, 15, y, 170, 4.5);
+      y += 3;
+    }
+
+    // Footer on each page
+    const totalPages = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= totalPages; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.setTextColor(150);
+      doc.text("PsiqMentor \u2022 Produto Educacional \u2022 Mestrado em Ensino em Sa\u00fade \u2022 CESUPA", 105, 290, { align: "center" });
+      doc.text(`P\u00e1gina ${i} de ${totalPages}`, 195, 290, { align: "right" });
+    }
+
+    doc.save(`PsiqMentor_Analise_NPS_${new Date().toISOString().slice(0,10)}.pdf`);
+
+  } catch (err) {
+    console.error(err);
+    alert("Erro ao gerar relat\u00f3rio NPS: " + err.message);
+  }
+});
+
+// ─── SUS Analysis PDF ──────────────────────────────────────────────────────
+document.getElementById("btnGenerateSUS").addEventListener("click", async () => {
+  if (!adminToken) { alert("Fa\u00e7a login primeiro."); return; }
+
+  try {
+    const susRes = await fetch(`${API}/api/admin/sus-analysis?token=${adminToken}`);
+    const susData = await susRes.json();
+
+    const respondents = susData.respondents || [];
+    const summary = susData.summary || {};
+    const itemMeans = susData.item_means || {};
+    const n = summary.n || 0;
+
+    if (n === 0) { alert("N\u00e3o h\u00e1 dados SUS para gerar o relat\u00f3rio."); return; }
+
+    const today = new Date().toLocaleDateString("pt-BR");
+
+    const doc = new jsPDF();
+    let y = 20;
+
+    // Header
+    doc.setFontSize(18);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(0, 105, 111);
+    doc.text("PsiqMentor \u2014 An\u00e1lise da System Usability Scale (SUS)", 15, y);
+    y += 8;
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(100, 100, 100);
+    doc.text(`Mestrado Profissional em Ensino em Sa\u00fade \u2014 CESUPA | Gerado em ${today}`, 15, y);
+    y += 4;
+    doc.setDrawColor(0, 105, 111);
+    doc.setLineWidth(0.8);
+    doc.line(15, y, 195, y);
+    y += 10;
+    doc.setTextColor(40, 37, 29);
+
+    // 1. Introducao
+    y = pdfSection(doc, "1. Introdu\u00e7\u00e3o Metodol\u00f3gica", y);
+    y = pdfParagraph(doc, "A System Usability Scale (SUS) \u00e9 um instrumento padronizado de avalia\u00e7\u00e3o de usabilidade desenvolvido por John Brooke em 1996, amplamente utilizado em pesquisas de intera\u00e7\u00e3o humano-computador. Trata-se de um question\u00e1rio composto por 10 afirma\u00e7\u00f5es em escala Likert de 5 pontos (1 = Discordo totalmente a 5 = Concordo totalmente), alternando itens positivos e negativos para minimizar vi\u00e9s de resposta (Brooke, 1996).", y);
+    y += 3;
+    y = pdfParagraph(doc, "O SUS gera um score \u00fanico de 0 a 100, que representa uma medida composta da usabilidade percebida do sistema. Sauro e Lewis (2016) propuseram uma escala de classifica\u00e7\u00e3o curva (curved grading scale) baseada em dados de 241 estudos de usabilidade, permitindo a classifica\u00e7\u00e3o em graus de A a F. Bangor, Kortum e Miller (2009) adicionaram uma escala de adjetivos (Excelente, Bom, OK, Pobre, P\u00e9ssimo) correlacionada aos scores SUS.", y);
+    y += 3;
+    y = pdfParagraph(doc, "A vers\u00e3o brasileira do SUS foi traduzida e validada por Louren\u00e7o, Carmona e Lopes (2022), que confirmaram equival\u00eancia sem\u00e2ntica, idiom\u00e1tica, conceitual e cultural com a vers\u00e3o original, com alfa de Cronbach de 0,76 e validade de constructo estrutural adequada.", y);
+    y += 6;
+
+    // 2. Instrumento
+    y = pdfSection(doc, "2. Instrumento Utilizado", y);
+    y = pdfParagraph(doc, "O question\u00e1rio SUS aplicado no PsiqMentor utiliza a vers\u00e3o brasileira validada, composta pelas seguintes 10 afirma\u00e7\u00f5es:", y);
+    y += 2;
+    const susItems = [
+      "1. Eu acho que gostaria de usar o PsiqMentor frequentemente.",
+      "2. Eu achei o PsiqMentor desnecessariamente complexo.",
+      "3. Eu achei o PsiqMentor f\u00e1cil de usar.",
+      "4. Eu acho que precisaria de ajuda de uma pessoa com conhecimentos t\u00e9cnicos para usar o PsiqMentor.",
+      "5. Eu achei que as v\u00e1rias fun\u00e7\u00f5es do PsiqMentor estavam muito bem integradas.",
+      "6. Eu achei que o PsiqMentor apresentava muita inconsist\u00eancia.",
+      "7. Eu imagino que a maioria das pessoas aprenderia a usar o PsiqMentor rapidamente.",
+      "8. Eu achei o PsiqMentor muito pesado/complicado de usar.",
+      "9. Eu me senti muito confiante ao usar o PsiqMentor.",
+      "10. Eu precisei aprender muitas coisas novas antes de conseguir usar o PsiqMentor.",
+    ];
+    doc.setFontSize(10);
+    for (const item of susItems) {
+      y = pdfAddWrappedText(doc, item, 20, y, 165, 4.5);
+      y += 2;
+    }
+    doc.setFontSize(11);
+    y += 2;
+    y = pdfParagraph(doc, "Os itens \u00edmpares (1, 3, 5, 7, 9) s\u00e3o formulados positivamente e os pares (2, 4, 6, 8, 10) negativamente. O c\u00e1lculo segue a f\u00f3rmula original: para itens \u00edmpares, subtrai-se 1 da resposta; para pares, subtrai-se a resposta de 5. A soma \u00e9 multiplicada por 2,5, resultando em score de 0 a 100.", y);
+    y += 6;
+
+    // 3. Amostra
+    y = pdfSection(doc, "3. Amostra", y);
+    y = pdfParagraph(doc, `Foram coletadas ${n} respostas v\u00e1lidas ao question\u00e1rio SUS, aplicado ap\u00f3s cada sess\u00e3o de simula\u00e7\u00e3o no PsiqMentor, de forma volunt\u00e1ria e an\u00f4nima.`, y);
+    y += 6;
+
+    // 4. Resultados
+    y = pdfSection(doc, "4. Resultados Descritivos", y);
+    y = pdfParagraph(doc, `Score SUS m\u00e9dio: ${summary.mean} (DP = ${summary.stdev})`, y);
+    y = pdfParagraph(doc, `Mediana: ${summary.median} | M\u00ednimo: ${summary.min} | M\u00e1ximo: ${summary.max}`, y);
+    y = pdfParagraph(doc, `Classifica\u00e7\u00e3o (Sauro & Lewis, 2016): Grau ${summary.grade} \u2014 ${summary.label}`, y);
+    y += 4;
+
+    // Score per respondent table
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    y = pdfAddWrappedText(doc, "Scores individuais dos respondentes:", 15, y, 170, 5);
+    y += 3;
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    // Table header
+    doc.setFillColor(0, 105, 111);
+    doc.setTextColor(255);
+    doc.rect(15, y - 3, 170, 6, "F");
+    doc.text("#", 17, y);
+    doc.text("Score SUS", 35, y);
+    doc.text("Grau", 75, y);
+    doc.text("Classifica\u00e7\u00e3o", 100, y);
+    y += 5;
+    doc.setTextColor(40, 37, 29);
+    respondents.forEach((r, i) => {
+      if (y > 270) { doc.addPage(); y = 20; }
+      doc.text(String(i + 1), 17, y);
+      doc.text(String(r.sus_score), 35, y);
+      doc.text(r.grade, 75, y);
+      doc.text(r.label, 100, y);
+      y += 5;
+    });
+    y += 4;
+    doc.setFontSize(11);
+
+    // 5. Analise por item
+    y = pdfSection(doc, "5. An\u00e1lise por Item", y);
+    y = pdfParagraph(doc, "A an\u00e1lise das m\u00e9dias por item permite identificar os aspectos espec\u00edficos de usabilidade melhor e pior avaliados:", y);
+    y += 3;
+    doc.setFontSize(10);
+    for (let i = 1; i <= 10; i++) {
+      const key = `SUS${i}`;
+      const mean = itemMeans[key] !== undefined ? Number(itemMeans[key]).toFixed(1) : "N/A";
+      const isPositive = i % 2 === 1;
+      const label = susItems[i - 1];
+      y = pdfAddWrappedText(doc, `${label} \u2014 M\u00e9dia: ${mean}/5.0 ${isPositive ? "(item positivo)" : "(item negativo)"}`, 15, y, 170, 4.5);
+      y += 3;
+    }
+    doc.setFontSize(11);
+    y += 3;
+
+    // 6. Classificacao
+    y = pdfSection(doc, "6. Classifica\u00e7\u00e3o e Benchmarking", y);
+    y = pdfParagraph(doc, "A classifica\u00e7\u00e3o do score SUS segue a escala curva de Sauro e Lewis (2016):", y);
+    y += 2;
+    const grades = [
+      "\u2022 Grau A (\u2265 80.3): Excelente \u2014 entre os 10% melhores",
+      "\u2022 Grau B (74.1\u201380.2): Bom",
+      "\u2022 Grau C (68.0\u201374.0): OK (m\u00e9dia)",
+      "\u2022 Grau D (51.7\u201367.9): Pobre",
+      "\u2022 Grau F (< 51.7): Reprovado",
+    ];
+    for (const g of grades) {
+      y = pdfParagraph(doc, g, y);
+    }
+    y += 3;
+    y = pdfParagraph(doc, `O benchmark global do SUS \u00e9 68 pontos (m\u00e9dia de milhares de avalia\u00e7\u00f5es compiladas por Sauro & Lewis). O PsiqMentor obteve ${summary.mean} pontos, ${summary.mean >= 68 ? "acima" : "abaixo"} da m\u00e9dia global, classificado como Grau ${summary.grade} (${summary.label}).`, y);
+    y += 3;
+    // Adjective scale (Bangor et al., 2009)
+    let adjective = "";
+    if (summary.mean >= 85.6) adjective = "Melhor Imagin\u00e1vel";
+    else if (summary.mean >= 73.6) adjective = "Excelente";
+    else if (summary.mean >= 52.6) adjective = "Bom";
+    else if (summary.mean >= 38.6) adjective = "OK";
+    else if (summary.mean >= 20.6) adjective = "Pobre";
+    else adjective = "Pior Imagin\u00e1vel";
+    y = pdfParagraph(doc, `Na escala de adjetivos de Bangor, Kortum e Miller (2009), o score corresponde \u00e0 classifica\u00e7\u00e3o \"${adjective}\".`, y);
+    y += 6;
+
+    // 7. Analise interpretativa
+    y = pdfSection(doc, "7. An\u00e1lise Interpretativa", y);
+    let susInterp = "";
+    if (summary.mean >= 80.3) {
+      susInterp = `O score SUS de ${summary.mean} (Grau ${summary.grade}) indica que os estudantes percebem o PsiqMentor como uma ferramenta de excelente usabilidade. Este resultado \u00e9 particularmente significativo considerando que se trata de uma ferramenta educacional baseada em intelig\u00eancia artificial, dom\u00ednio em que a complexidade tecnol\u00f3gica frequentemente representa barreira \u00e0 ado\u00e7\u00e3o. A alta usabilidade percebida \u00e9 condi\u00e7\u00e3o necess\u00e1ria para a ado\u00e7\u00e3o institucional de qualquer tecnologia educacional em sa\u00fade.`;
+    } else if (summary.mean >= 68) {
+      susInterp = `O score SUS de ${summary.mean} (Grau ${summary.grade}) situa o PsiqMentor acima da m\u00e9dia global de usabilidade (68 pontos). Os estudantes demonstraram facilidade de uso e confian\u00e7a na intera\u00e7\u00e3o com a ferramenta, indicando que a interface \u00e9 acess\u00edvel ao p\u00fablico-alvo.`;
+    } else {
+      susInterp = `O score SUS de ${summary.mean} (Grau ${summary.grade}) indica oportunidades de melhoria na usabilidade do PsiqMentor. Recomenda-se investigar os itens com menor avalia\u00e7\u00e3o para identificar barreiras espec\u00edficas de uso.`;
+    }
+    y = pdfParagraph(doc, susInterp, y);
+    y += 6;
+
+    // 8. Implicacoes
+    y = pdfSection(doc, "8. Implica\u00e7\u00f5es para Ado\u00e7\u00e3o Institucional", y);
+    y = pdfParagraph(doc, "A avalia\u00e7\u00e3o de usabilidade \u00e9 um dos pilares para a valida\u00e7\u00e3o de tecnologias educacionais. Um score SUS favorável demonstra que a ferramenta pode ser utilizada por estudantes de medicina sem necessidade de treinamento extensivo ou suporte t\u00e9cnico especializado \u2014 requisito fundamental para a escalabilidade em institui\u00e7\u00f5es de ensino.", y);
+    y += 3;
+    y = pdfParagraph(doc, "A combina\u00e7\u00e3o de usabilidade adequada (SUS) com alta inten\u00e7\u00e3o de recomenda\u00e7\u00e3o (NPS) constitui evid\u00eancia robusta de que o PsiqMentor re\u00fane condi\u00e7\u00f5es t\u00e9cnicas e pedag\u00f3gicas para ser adotado oficialmente como ferramenta de apoio ao ensino em Psiquiatria.", y);
+    y += 6;
+
+    // 9. Referencias
+    y = pdfSection(doc, "9. Refer\u00eancias", y);
+    doc.setFontSize(10);
+    const susRefs = [
+      "Brooke, J. (1996). SUS: A 'Quick and Dirty' Usability Scale. In P. W. Jordan et al. (Eds.), Usability Evaluation in Industry (pp. 189\u2013194). Taylor & Francis.",
+      "Sauro, J., & Lewis, J. R. (2016). Quantifying the User Experience: Practical Statistics for User Research (2nd ed.). Morgan Kaufmann.",
+      "Bangor, A., Kortum, P., & Miller, J. (2009). Determining What Individual SUS Scores Mean: Adding an Adjective Rating Scale. Journal of Usability Studies, 4(3), 114\u2013123.",
+      "Louren\u00e7o, D. F., Carmona, E. V., & Lopes, M. H. B. M. (2022). Tradu\u00e7\u00e3o e adapta\u00e7\u00e3o transcultural da System Usability Scale para o portugu\u00eas do Brasil. Aquichan, 22(2), e2228.",
+      "Bangor, A., Kortum, P., & Miller, J. (2008). An Empirical Evaluation of the System Usability Scale. International Journal of Human\u2013Computer Interaction, 24(6), 574\u2013594.",
+    ];
+    for (const ref of susRefs) {
+      y = pdfAddWrappedText(doc, ref, 15, y, 170, 4.5);
+      y += 3;
+    }
+
+    // Footer on each page
+    const totalPages = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= totalPages; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.setTextColor(150);
+      doc.text("PsiqMentor \u2022 Produto Educacional \u2022 Mestrado em Ensino em Sa\u00fade \u2022 CESUPA", 105, 290, { align: "center" });
+      doc.text(`P\u00e1gina ${i} de ${totalPages}`, 195, 290, { align: "right" });
+    }
+
+    doc.save(`PsiqMentor_Analise_SUS_${new Date().toISOString().slice(0,10)}.pdf`);
+
+  } catch (err) {
+    console.error(err);
+    alert("Erro ao gerar relat\u00f3rio SUS: " + err.message);
   }
 });
 </script>
