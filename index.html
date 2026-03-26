@@ -2302,8 +2302,7 @@ function startSessionTimer() {
   clearTimeout(sessionTimerId);
   sessionTimerId = setTimeout(() => {
     if (!sessionId) return;
-    addMessage("system-alert", `O tempo m\u00e1ximo de ${SESSION_MAX_MINUTES} minutos foi atingido. A simula\u00e7\u00e3o ser\u00e1 encerrada automaticamente.`);
-    setTimeout(() => forceEndSession("tempo_esgotado"), 3000);
+    forceEndSession("tempo_esgotado");
   }, SESSION_MAX_MINUTES * 60 * 1000);
 }
 
@@ -2324,8 +2323,7 @@ function resetInactivityTimer() {
     // Start close countdown
     inactivityCloseTimerId = setTimeout(() => {
       if (!sessionId) return;
-      addMessage("system-alert", "Atendimento encerrado por inatividade.");
-      setTimeout(() => forceEndSession("inatividade"), 2000);
+      forceEndSession("inatividade");
     }, INACTIVITY_CLOSE_SECONDS * 1000);
   }, INACTIVITY_WARN_SECONDS * 1000);
 }
