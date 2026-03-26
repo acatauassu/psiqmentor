@@ -332,6 +332,25 @@
     0%, 100% { opacity: 1; }
     50% { opacity: 0.7; }
   }
+  .message.restart-block {
+    padding: 20px 24px;
+    animation: none;
+  }
+  .btn-restart-chat {
+    display: inline-block;
+    padding: 10px 28px;
+    background: #C62828;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .btn-restart-chat:hover {
+    background: #B71C1C;
+  }
   .typing-indicator {
     display: none;
     align-self: flex-start;
@@ -2338,12 +2357,28 @@ async function forceEndSession(reason) {
   } catch (err) {
     console.error("Erro ao finalizar sess\u00e3o por " + reason + ":", err);
   }
-  // Reset and go back to welcome
+  // Reset session state but stay on chat screen
   sessionId = null;
-  lastReportData = null;
   surveyDone = false;
   eemCompleted = false;
-  showScreen(welcomeScreen);
+
+  // Show restart button in chat instead of going to welcome
+  const reasonText = reason === "inatividade"
+    ? "Atendimento encerrado por inatividade."
+    : `Tempo m\u00e1ximo de ${SESSION_MAX_MINUTES} minutos atingido.`;
+
+  const restartDiv = document.createElement("div");
+  restartDiv.classList.add("message", "system-alert", "restart-block");
+  restartDiv.innerHTML = `
+    <div style="margin-bottom:12px; font-size:15px;">${reasonText}</div>
+    <button class="btn-restart-chat" onclick="
+      this.closest('.restart-block').remove();
+      lastReportData = null;
+      showScreen(welcomeScreen);
+    ">Clique para recome\u00e7ar</button>
+  `;
+  messagesContainer.insertBefore(restartDiv, typingIndicator);
+  messagesContainer.scrollTop = messagesContainer.scrollHeight;
 }
 
 // ─── DOM Elements ───────────────────────────────────────────────
