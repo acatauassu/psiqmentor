@@ -1298,8 +1298,15 @@ def _format_full_conversation(messages: list) -> str:
 
 def _evaluate_eem(session: dict) -> dict:
     """Evaluate the student's EEM against conversational observations."""
+    import logging
+    logger = logging.getLogger("psiqmentor")
+
     eem_data = session.get("eem_student", {})
-    conversation_text = _format_full_conversation(session["messages"])
+    # Limit conversation to last 40 turns to avoid exceeding context window
+    msgs = session["messages"]
+    limited_msgs = msgs[-80:] if len(msgs) > 80 else msgs
+    conversation_text = _format_full_conversation(limited_msgs)
+    logger.info(f"EEM evaluation: {len(msgs)} msgs total, sending {len(limited_msgs)} msgs ({len(conversation_text)} chars)")
 
     prompt = f"""Analise o Exame do Estado Mental preenchido por um estudante de medicina após entrevista com paciente simulado.
 
@@ -1319,25 +1326,36 @@ Responda com JSON:
   "comentario": "breve parágrafo com feedback formativo"
 }}"""
 
-    try:
-        response = client.messages.create(
-            model="claude-haiku-4-5",
-            max_tokens=800,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        text = response.content[0].text
-        json_start = text.find("{")
-        json_end = text.rfind("}") + 1
-        if json_start >= 0 and json_end > json_start:
-            return json.loads(text[json_start:json_end])
-    except Exception:
-        pass
-    return {
+    fallback = {
         "avaliacao_geral": "não_aplicável",
         "pontos_fortes": [],
         "areas_melhorar": [],
         "comentario": "Não foi possível avaliar o EEM.",
     }
+
+    for attempt in range(2):
+        try:
+            response = client.messages.create(
+                model="claude-sonnet-4-6",
+                max_tokens=1500,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            text = response.content[0].text
+            json_start = text.find("{")
+            json_end = text.rfind("}") + 1
+            if json_start >= 0 and json_end > json_start:
+                result = json.loads(text[json_start:json_end])
+                logger.info(f"EEM evaluation succeeded on attempt {attempt + 1}")
+                return result
+            else:
+                logger.warning(f"EEM evaluation attempt {attempt + 1}: no valid JSON found")
+        except json.JSONDecodeError as e:
+            logger.error(f"EEM evaluation attempt {attempt + 1}: JSON parse error: {e}")
+        except Exception as e:
+            logger.error(f"EEM evaluation attempt {attempt + 1}: API error: {type(e).__name__}: {e}")
+
+    logger.error("EEM evaluation failed after 2 attempts, returning fallback")
+    return fallback
 
 
 if __name__ == "__main__":
