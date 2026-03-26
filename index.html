@@ -317,6 +317,21 @@
     max-width: 90%;
     text-align: center;
   }
+  .message.system-alert {
+    align-self: center;
+    background: #FFF0F0;
+    color: #C62828;
+    font-size: 14px;
+    font-weight: 600;
+    max-width: 90%;
+    text-align: center;
+    border: 1px solid #EF9A9A;
+    animation: alertPulse 1s ease-in-out 2;
+  }
+  @keyframes alertPulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+  }
   .typing-indicator {
     display: none;
     align-self: flex-start;
@@ -2255,6 +2270,82 @@ let lastReportData = null;
 let adminToken = null;
 let eemCompleted = false;
 
+// ─── Timer & Inactivity State ──────────────────────────────────────
+const SESSION_MAX_MINUTES = 50;
+const INACTIVITY_WARN_SECONDS = 5 * 60;  // 5 min
+const INACTIVITY_CLOSE_SECONDS = 30;     // 30s after warning
+let sessionTimerId = null;
+let inactivityTimerId = null;
+let inactivityCloseTimerId = null;
+let inactivityWarningShown = false;
+
+function startSessionTimer() {
+  clearTimeout(sessionTimerId);
+  sessionTimerId = setTimeout(() => {
+    if (!sessionId) return;
+    addMessage("system-alert", `O tempo m\u00e1ximo de ${SESSION_MAX_MINUTES} minutos foi atingido. A simula\u00e7\u00e3o ser\u00e1 encerrada automaticamente.`);
+    setTimeout(() => forceEndSession("tempo_esgotado"), 3000);
+  }, SESSION_MAX_MINUTES * 60 * 1000);
+}
+
+function resetInactivityTimer() {
+  clearTimeout(inactivityTimerId);
+  clearTimeout(inactivityCloseTimerId);
+  // Remove any existing inactivity warning
+  if (inactivityWarningShown) {
+    const warns = messagesContainer.querySelectorAll(".message.inactivity-warning");
+    warns.forEach(w => w.remove());
+    inactivityWarningShown = false;
+  }
+  if (!sessionId) return;
+  inactivityTimerId = setTimeout(() => {
+    if (!sessionId) return;
+    inactivityWarningShown = true;
+    addMessage("system-alert", "Ol\u00e1, ap\u00f3s 5 minutos de inatividade o atendimento ser\u00e1 encerrado.");
+    // Start close countdown
+    inactivityCloseTimerId = setTimeout(() => {
+      if (!sessionId) return;
+      addMessage("system-alert", "Atendimento encerrado por inatividade.");
+      setTimeout(() => forceEndSession("inatividade"), 2000);
+    }, INACTIVITY_CLOSE_SECONDS * 1000);
+  }, INACTIVITY_WARN_SECONDS * 1000);
+}
+
+function stopAllTimers() {
+  clearTimeout(sessionTimerId);
+  clearTimeout(inactivityTimerId);
+  clearTimeout(inactivityCloseTimerId);
+  sessionTimerId = null;
+  inactivityTimerId = null;
+  inactivityCloseTimerId = null;
+  inactivityWarningShown = false;
+}
+
+async function forceEndSession(reason) {
+  if (!sessionId) return;
+  stopAllTimers();
+  messageInput.disabled = true;
+  sendBtn.disabled = true;
+  // Try to call finish if not already finished
+  try {
+    const res = await fetch(`${API}/api/finish`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ session_id: sessionId }),
+    });
+    const data = await res.json();
+    lastReportData = data;
+  } catch (err) {
+    console.error("Erro ao finalizar sess\u00e3o por " + reason + ":", err);
+  }
+  // Reset and go back to welcome
+  sessionId = null;
+  lastReportData = null;
+  surveyDone = false;
+  eemCompleted = false;
+  showScreen(welcomeScreen);
+}
+
 // ─── DOM Elements ───────────────────────────────────────────────
 const welcomeScreen      = document.getElementById("welcome-screen");
 const chatScreen         = document.getElementById("chat-screen");
@@ -2335,6 +2426,10 @@ startBtn.addEventListener("click", async () => {
     showScreen(chatScreen);
     messageInput.focus();
 
+    // Start session timer (50 min) and inactivity timer (5 min)
+    startSessionTimer();
+    resetInactivityTimer();
+
     // Student starts the conversation — no auto-greeting
 
   } catch (err) {
@@ -2350,6 +2445,9 @@ startBtn.addEventListener("click", async () => {
 // ─── Send Message ───────────────────────────────────────────────
 async function sendMessage(text) {
   if (!text.trim() || !sessionId || sending) return;
+
+  // Reset inactivity timer on any student interaction
+  resetInactivityTimer();
 
   // Detect "EEM" command — EEM is mandatory before finishing
   if (text.trim().toUpperCase() === "EEM") {
@@ -2425,6 +2523,9 @@ messageInput.addEventListener("input", () => autoResize(messageInput));
 function addMessage(type, text) {
   const div = document.createElement("div");
   div.classList.add("message", type);
+  if (type === "system-alert") {
+    div.classList.add("inactivity-warning");
+  }
   if (type === "patient") {
     // Render *behavior* in blue italic for patient messages
     div.innerHTML = text.replace(/</g, "&lt;").replace(/>/g, "&gt;")
@@ -2444,6 +2545,9 @@ function showTyping(show) {
 
 // ─── EEM Screen Logic ───────────────────────────────────────────
 async function openEEMScreen() {
+  // Reset inactivity timer — student is actively working on EEM
+  resetInactivityTimer();
+
   // Reset EEM form
   document.getElementById("eemForm").reset();
 
@@ -2532,6 +2636,9 @@ async function endSession() {
   messageInput.value = "";
   autoResize(messageInput);
 
+  // Stop all timers on normal session end
+  stopAllTimers();
+
   // Disable chat input
   messageInput.disabled = true;
   messageInput.placeholder = "Simulação encerrada";
@@ -2592,9 +2699,11 @@ goReportBtn.addEventListener("click", () => {
 });
 
 postRestartBtn.addEventListener("click", () => {
+  stopAllTimers();
   sessionId = null;
   lastReportData = null;
   surveyDone = false;
+  eemCompleted = false;
   showScreen(welcomeScreen);
 });
 

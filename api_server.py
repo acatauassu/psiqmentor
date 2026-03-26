@@ -1219,6 +1219,9 @@ def serve_frontend():
 # ─── Helper Functions ───────────────────────────────────────────────────────
 def _assess_interview_quality(messages: list) -> dict:
     """Assess the overall quality of the interview process."""
+    import logging
+    logger = logging.getLogger("psiqmentor")
+
     if len(messages) < 4:  # Less than 2 turns
         return {
             "acolhimento_rapport": {"classificacao": "não_aplicável", "observacao": "Entrevista muito curta para avaliar."},
@@ -1231,25 +1234,12 @@ def _assess_interview_quality(messages: list) -> dict:
             "sugestoes_formativas": ["Realize entrevistas mais longas para permitir uma avaliação adequada da qualidade processual."],
         }
 
-    conversation_text = _format_full_conversation(messages)
+    # Limit conversation to last 40 turns to avoid exceeding context window
+    limited_messages = messages[-80:] if len(messages) > 80 else messages
+    conversation_text = _format_full_conversation(limited_messages)
+    logger.info(f"Quality assessment: {len(messages)} msgs total, sending {len(limited_messages)} msgs ({len(conversation_text)} chars)")
 
-    try:
-        response = client.messages.create(
-            model="claude-sonnet-4-6",
-            max_tokens=1500,
-            system=QUALITY_ASSESSMENT_PROMPT,
-            messages=[{"role": "user", "content": f"TRANSCRIÇÃO DA ENTREVISTA:\n\n{conversation_text}"}],
-        )
-        response_text = response.content[0].text
-
-        json_start = response_text.find("{")
-        json_end = response_text.rfind("}") + 1
-        if json_start >= 0 and json_end > json_start:
-            return json.loads(response_text[json_start:json_end])
-    except Exception:
-        pass
-
-    return {
+    fallback = {
         "acolhimento_rapport": {"classificacao": "não_aplicável", "observacao": "Não foi possível avaliar."},
         "progressao_logica": {"classificacao": "não_aplicável", "observacao": "Não foi possível avaliar."},
         "exploracao_temporal": {"classificacao": "não_aplicável", "observacao": "Não foi possível avaliar."},
@@ -1259,6 +1249,33 @@ def _assess_interview_quality(messages: list) -> dict:
         "avaliacao_global": "Não foi possível realizar a avaliação processual.",
         "sugestoes_formativas": [],
     }
+
+    # Retry up to 2 times on failure
+    for attempt in range(2):
+        try:
+            response = client.messages.create(
+                model="claude-sonnet-4-6",
+                max_tokens=2500,
+                system=QUALITY_ASSESSMENT_PROMPT,
+                messages=[{"role": "user", "content": f"TRANSCRIÇÃO DA ENTREVISTA:\n\n{conversation_text}"}],
+            )
+            response_text = response.content[0].text
+
+            json_start = response_text.find("{")
+            json_end = response_text.rfind("}") + 1
+            if json_start >= 0 and json_end > json_start:
+                result = json.loads(response_text[json_start:json_end])
+                logger.info(f"Quality assessment succeeded on attempt {attempt + 1}")
+                return result
+            else:
+                logger.warning(f"Quality assessment attempt {attempt + 1}: no valid JSON found in response")
+        except json.JSONDecodeError as e:
+            logger.error(f"Quality assessment attempt {attempt + 1}: JSON parse error: {e}")
+        except Exception as e:
+            logger.error(f"Quality assessment attempt {attempt + 1}: API error: {type(e).__name__}: {e}")
+
+    logger.error("Quality assessment failed after 2 attempts, returning fallback")
+    return fallback
 
 
 def _format_conversation(messages: list) -> str:
