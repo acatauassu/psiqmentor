@@ -3785,12 +3785,13 @@ document.getElementById("btnGenerateNPS").addEventListener("click", async () => 
       fetch(`${API}/api/admin/survey/data?token=${adminToken}`),
     ]);
     const dash = await dashRes.json();
-    const surveys = await surveyRes.json();
+    const surveyJson = await surveyRes.json();
+    const surveys = surveyJson.surveys || surveyJson || [];
 
     // Extract NPS data
     const nps1Scores = [];
     const nps2Scores = [];
-    for (const s of (surveys || [])) {
+    for (const s of (Array.isArray(surveys) ? surveys : [])) {
       const r = s.responses || {};
       if (r.NPS1 !== undefined) nps1Scores.push(parseInt(r.NPS1));
       if (r.NPS2 !== undefined) nps2Scores.push(parseInt(r.NPS2));
