@@ -2657,20 +2657,33 @@ document.getElementById("eemForm").addEventListener("submit", async (e) => {
   btn.disabled = true;
   btn.innerHTML = "Encerrando...";
 
-  // Submit EEM data
+  // Submit EEM data — MUST complete before calling endSession/finish
   try {
-    await fetch(`${API}/api/eem-submit`, {
+    const eemRes = await fetch(`${API}/api/eem-submit`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ session_id: sessionId, eem_data: eemData }),
     });
+    if (!eemRes.ok) {
+      console.error("EEM submit failed:", eemRes.status);
+      alert("Erro ao salvar o EEM. Tente novamente.");
+      btn.disabled = false;
+      btn.innerHTML = "Encerrar Simula\u00e7\u00e3o";
+      return;
+    }
+    // Wait for response body to ensure server processed it
+    await eemRes.json();
   } catch (err) {
     console.error("Erro ao salvar EEM:", err);
+    alert("Erro de conex\u00e3o ao salvar o EEM. Tente novamente.");
+    btn.disabled = false;
+    btn.innerHTML = "Encerrar Simula\u00e7\u00e3o";
+    return;
   }
 
   eemCompleted = true;
 
-  // End session directly
+  // End session — safe to call now that EEM is saved
   endSession();
 });
 
