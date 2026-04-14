@@ -3132,8 +3132,14 @@ function generatePDF(data) {
   y = 52;
 
   // ── Score Box ──
+  const total = data.criteria_investigated.length + data.criteria_missing.length;
+  const diagText = `Diagn\u00f3stico do caso: ${data.diagnostico_correto}`;
+  doc.setFontSize(9);
+  const diagLines = doc.splitTextToSize(diagText, contentW - 50);
+  const boxH = 26 + (diagLines.length * 4);
+
   doc.setFillColor(240, 239, 235);
-  doc.roundedRect(margin, y, contentW, 28, 3, 3, "F");
+  doc.roundedRect(margin, y, contentW, boxH, 3, 3, "F");
 
   const scoreColor = data.score_pct >= 70 ? green : data.score_pct >= 40 ? orange : red;
   doc.setTextColor(...scoreColor);
@@ -3141,20 +3147,20 @@ function generatePDF(data) {
   doc.setFont("helvetica", "bold");
   doc.text(data.score_pct + "%", margin + 10, y + 19);
 
-  const total = data.criteria_investigated.length + data.criteria_missing.length;
   doc.setTextColor(...darkText);
   doc.setFontSize(12);
   doc.setFont("helvetica", "bold");
-  doc.text("Cobertura de Critérios DSM-5-TR", margin + 45, y + 12);
+  doc.text("Cobertura de Crit\u00e9rios DSM-5-TR", margin + 45, y + 12);
   doc.setFontSize(10);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(...grayText);
-  doc.text(`${data.criteria_investigated.length} de ${total} critérios investigados em ${data.total_turns} turnos`, margin + 45, y + 20);
+  doc.text(`${data.criteria_investigated.length} de ${total} crit\u00e9rios investigados em ${data.total_turns} turnos`, margin + 45, y + 20);
   doc.setTextColor(...darkText);
-  doc.setFontSize(10);
-  doc.text(`Diagnóstico do caso: ${data.diagnostico_correto}`, margin + 45, y + 26);
+  doc.setFontSize(9);
+  let diagY = y + 26;
+  diagLines.forEach(line => { doc.text(line, margin + 45, diagY); diagY += 4; });
 
-  y += 36;
+  y += boxH + 8;
 
   // ── Criteria Section ──
   doc.setTextColor(...blue);
