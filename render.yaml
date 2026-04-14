@@ -3,7 +3,7 @@ services:
     name: psiqmentor
     runtime: python
     buildCommand: pip install -r requirements.txt
-    startCommand: uvicorn api_server:app --host 0.0.0.0 --port $PORT
+    startCommand: uvicorn api_server:app --host 0.0.0.0 --port $PORT --timeout-keep-alive 120 --loop uvloop
     envVars:
       - key: ANTHROPIC_API_KEY
         sync: false

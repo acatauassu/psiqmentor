@@ -633,10 +633,30 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-client = Anthropic()
+from anthropic import AsyncAnthropic
+import time as _time
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("psiqmentor")
+
+client = AsyncAnthropic()
 
 # In-memory session store
+MAX_ACTIVE_SESSIONS = 120
+SESSION_TTL_SECONDS = 60 * 60  # 1 hour — auto-cleanup stale sessions
 sessions: dict = {}
+
+def _cleanup_stale_sessions():
+    """Remove sessions older than TTL to free memory."""
+    now = _time.time()
+    stale = [sid for sid, s in sessions.items()
+             if now - s.get("created_at", now) > SESSION_TTL_SECONDS
+             or s.get("finished", False)]
+    for sid in stale:
+        del sessions[sid]
+    if stale:
+        logger.info(f"Cleaned up {len(stale)} stale sessions. Active: {len(sessions)}")
 
 # Persistent survey storage path
 # Use /data on Render (persistent disk), fallback to local ./data
@@ -693,6 +713,11 @@ class AdminLoginRequest(BaseModel):
 @app.post("/api/start")
 def start_session():
     """Start a new simulation session with a random patient profile."""
+    # Cleanup stale sessions and enforce limit
+    _cleanup_stale_sessions()
+    if len(sessions) >= MAX_ACTIVE_SESSIONS:
+        raise HTTPException(status_code=503, detail="Servidor no limite de sess\u00f5es simult\u00e2neas. Tente novamente em alguns minutos.")
+
     session_id = str(uuid.uuid4())
     profile = random.choice(PATIENT_PROFILES)
     system_prompt = build_system_prompt(profile)
@@ -706,6 +731,7 @@ def start_session():
         "criteria_tracked": {},
         "criteria_log": [],
         "started_at": datetime.now().isoformat(),
+        "created_at": _time.time(),
         "finished": False,
         "eem_student": None,
     }
@@ -730,7 +756,7 @@ def start_session():
 
 
 @app.post("/api/chat")
-def chat(req: ChatRequest):
+async def chat(req: ChatRequest):
     """Send a message and get the patient's response. Tracking is silent."""
     session = sessions.get(req.session_id)
     if not session:
@@ -743,7 +769,7 @@ def chat(req: ChatRequest):
 
     # 1. Get patient response from LLM
     try:
-        patient_response = client.messages.create(
+        patient_response = await client.messages.create(
             model="claude-sonnet-4-6",
             max_tokens=500,
             system=session["system_prompt"],
@@ -772,7 +798,7 @@ def chat(req: ChatRequest):
     ]
 
     try:
-        tracking_response = client.messages.create(
+        tracking_response = await client.messages.create(
             model="claude-haiku-4-5",
             max_tokens=300,
             system=session["tracker_prompt"],
@@ -817,7 +843,7 @@ def chat(req: ChatRequest):
 
 
 @app.post("/api/eem-summary")
-def eem_summary(req: EEMRequest):
+async def eem_summary(req: EEMRequest):
     """Generate EEM observational summary from conversation cues."""
     session = sessions.get(req.session_id)
     if not session:
@@ -826,7 +852,7 @@ def eem_summary(req: EEMRequest):
     conversation_text = _format_full_conversation(session["messages"])
 
     try:
-        response = client.messages.create(
+        response = await client.messages.create(
             model="claude-sonnet-4-6",
             max_tokens=1500,
             system=EEM_SUMMARY_PROMPT,
@@ -848,7 +874,7 @@ def eem_submit(req: EEMSubmitRequest):
 
 
 @app.post("/api/finish")
-def finish_session(req: FinishRequest):
+async def finish_session(req: FinishRequest):
     """Finish the session and return the full formative feedback report."""
     session = sessions.get(req.session_id)
     if not session:
@@ -877,7 +903,7 @@ def finish_session(req: FinishRequest):
     score_pct = round((len(core_investigated) / max(len(core_criteria), 1)) * 100)
 
     # ── Global quality assessment ────────────────────────────────────────
-    quality_assessment = _assess_interview_quality(session["messages"])
+    quality_assessment = await _assess_interview_quality(session["messages"])
 
     # ── Build dynamic criteria descriptions ──────────────────────────────
     criteria_descriptions = build_criteria_descriptions(profile)
@@ -888,7 +914,7 @@ def finish_session(req: FinishRequest):
     # ── EEM evaluation (if student completed it) ─────────────────────────
     eem_evaluation = None
     if session.get("eem_student"):
-        eem_evaluation = _evaluate_eem(session)
+        eem_evaluation = await _evaluate_eem(session)
 
     return {
         "score_pct": score_pct,
@@ -1141,14 +1167,14 @@ def admin_dashboard(token: str = Query(...)):
 
 
 @app.post("/api/admin/test-anthropic")
-def admin_test_anthropic(token: str = Query(...)):
+async def admin_test_anthropic(token: str = Query(...)):
     """Test Anthropic API connectivity with a minimal call."""
     if not verify_admin_token(token):
         raise HTTPException(status_code=401, detail="Token inválido ou expirado")
 
     start_time = time.time()
     try:
-        response = client.messages.create(
+        response = await client.messages.create(
             model="claude-haiku-4-5",
             max_tokens=10,
             messages=[{"role": "user", "content": "Olá"}],
@@ -1217,7 +1243,7 @@ def serve_frontend():
 
 
 # ─── Helper Functions ───────────────────────────────────────────────────────
-def _assess_interview_quality(messages: list) -> dict:
+async def _assess_interview_quality(messages: list) -> dict:
     """Assess the overall quality of the interview process."""
     import logging
     logger = logging.getLogger("psiqmentor")
@@ -1253,7 +1279,7 @@ def _assess_interview_quality(messages: list) -> dict:
     # Retry up to 2 times on failure
     for attempt in range(2):
         try:
-            response = client.messages.create(
+            response = await client.messages.create(
                 model="claude-sonnet-4-6",
                 max_tokens=2500,
                 system=QUALITY_ASSESSMENT_PROMPT,
@@ -1296,7 +1322,7 @@ def _format_full_conversation(messages: list) -> str:
     return "\n".join(lines)
 
 
-def _evaluate_eem(session: dict) -> dict:
+async def _evaluate_eem(session: dict) -> dict:
     """Evaluate the student's EEM against conversational observations."""
     import logging
     logger = logging.getLogger("psiqmentor")
@@ -1335,7 +1361,7 @@ Responda com JSON:
 
     for attempt in range(2):
         try:
-            response = client.messages.create(
+            response = await client.messages.create(
                 model="claude-sonnet-4-6",
                 max_tokens=1500,
                 messages=[{"role": "user", "content": prompt}],
