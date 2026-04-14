@@ -2943,6 +2943,12 @@ function buildEEMReportSection(data) {
 }
 
 // ─── Show Report ────────────────────────────────────────────────
+// Sanitize text from AI responses — remove null bytes and other invisible characters
+function sanitizeText(text) {
+  if (!text) return "";
+  return text.replace(/\u0000/g, "").replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, "");
+}
+
 function showReport(data) {
   const scoreClass = data.score_pct >= 70 ? "high" : data.score_pct >= 40 ? "medium" : "low";
   const qa = data.quality_assessment;
@@ -3109,20 +3115,21 @@ function generatePDF(data) {
 
   // ── Header ──
   doc.setFillColor(...blue);
-  doc.rect(0, 0, pageW, 40, "F");
+  doc.rect(0, 0, pageW, 48, "F");
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(22);
   doc.setFont("helvetica", "bold");
-  doc.text("PsiqMentor", margin, 18);
+  doc.text("PsiqMentor", margin, 16);
   doc.setFontSize(11);
   doc.setFont("helvetica", "normal");
-  doc.text("Relatório Formativo — Simulação de Anamnese Psiquiátrica", margin, 28);
+  doc.text("Relatório Formativo — Simulação de Anamnese Psiquiátrica", margin, 26);
   doc.setFontSize(9);
-  doc.text("CESUPA • Mestrado em Ensino em Saúde • " + new Date().toLocaleDateString("pt-BR"), margin, 35);
+  doc.text("CESUPA \u2022 Mestrado em Ensino em Sa\u00fade \u2022 " + new Date().toLocaleDateString("pt-BR"), margin, 34);
   doc.setFontSize(8);
-  doc.text("Sess\u00e3o: " + (data.session_id || sessionId || "N/A").substring(0, 8), margin, 41);
+  const sid = (data.session_id || sessionId || "N/A").substring(0, 8);
+  doc.text("Sess\u00e3o: " + sid, margin, 42);
 
-  y = 50;
+  y = 56;
 
   // ── Score Box ──
   doc.setFillColor(240, 239, 235);
@@ -3295,7 +3302,7 @@ function generatePDF(data) {
     doc.setTextColor(...darkText);
     allTips.forEach(tip => {
       checkPage(14);
-      const lines = doc.splitTextToSize("• " + tip, contentW - 4);
+      const lines = doc.splitTextToSize("• " + sanitizeText(tip), contentW - 4);
       doc.text(lines, margin + 2, y);
       y += lines.length * 4 + 4;
     });
@@ -3352,7 +3359,7 @@ function generatePDF(data) {
       doc.setFont("helvetica", "normal");
       doc.setTextColor(...grayText);
       doc.setFontSize(9);
-      const evalLines = doc.splitTextToSize(data.eem_evaluation.comentario, contentW - 4);
+      const evalLines = doc.splitTextToSize(sanitizeText(data.eem_evaluation.comentario), contentW - 4);
       evalLines.forEach(line => {
         checkPage(5);
         doc.text(line, margin + 2, y);
