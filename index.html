@@ -995,6 +995,9 @@
     max-width: 720px;
     width: 100%;
     box-shadow: var(--shadow-md);
+    text-align: left;
+    word-spacing: normal;
+    letter-spacing: normal;
   }
   .report-card h2 {
     font-family: var(--font-display);
@@ -3022,7 +3025,7 @@ function showReport(data) {
   document.getElementById("reportContent").innerHTML = `
     <h2>Relatório Formativo</h2>
     <p style="color: var(--text-secondary); font-size: 14px; margin-bottom: 4px;">Diagnóstico do caso: <strong>${data.diagnostico_correto}</strong></p>
-    <p style="color: var(--text-secondary); font-size: 12px; margin-bottom: 8px; opacity: 0.7;">Sessão: ${data.session_id || sessionId || 'N/A'}</p>
+    <p style="color: var(--text-secondary); font-size: 12px; margin-bottom: 8px; opacity: 0.7;">Sessão: ${(data.session_id || sessionId || 'N/A').substring(0, 8)}</p>
 
     <div class="report-score-row">
       <div class="report-big-score ${scoreClass}">${data.score_pct}%</div>
@@ -3117,7 +3120,7 @@ function generatePDF(data) {
   doc.setFontSize(9);
   doc.text("CESUPA • Mestrado em Ensino em Saúde • " + new Date().toLocaleDateString("pt-BR"), margin, 35);
   doc.setFontSize(8);
-  doc.text("Sess\u00e3o: " + (data.session_id || sessionId || "N/A"), margin, 41);
+  doc.text("Sess\u00e3o: " + (data.session_id || sessionId || "N/A").substring(0, 8), margin, 41);
 
   y = 50;
 
