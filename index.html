@@ -3022,6 +3022,7 @@ function showReport(data) {
   document.getElementById("reportContent").innerHTML = `
     <h2>Relatório Formativo</h2>
     <p style="color: var(--text-secondary); font-size: 14px; margin-bottom: 4px;">Diagnóstico do caso: <strong>${data.diagnostico_correto}</strong></p>
+    <p style="color: var(--text-secondary); font-size: 12px; margin-bottom: 8px; opacity: 0.7;">Sessão: ${data.session_id || sessionId || 'N/A'}</p>
 
     <div class="report-score-row">
       <div class="report-big-score ${scoreClass}">${data.score_pct}%</div>
@@ -3115,8 +3116,10 @@ function generatePDF(data) {
   doc.text("Relatório Formativo — Simulação de Anamnese Psiquiátrica", margin, 28);
   doc.setFontSize(9);
   doc.text("CESUPA • Mestrado em Ensino em Saúde • " + new Date().toLocaleDateString("pt-BR"), margin, 35);
+  doc.setFontSize(8);
+  doc.text("Sess\u00e3o: " + (data.session_id || sessionId || "N/A"), margin, 41);
 
-  y = 48;
+  y = 50;
 
   // ── Score Box ──
   doc.setFillColor(240, 239, 235);

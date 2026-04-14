@@ -917,6 +917,7 @@ async def finish_session(req: FinishRequest):
         eem_evaluation = await _evaluate_eem(session)
 
     return {
+        "session_id": req.session_id,
         "score_pct": score_pct,
         "criteria_investigated": sorted(list(investigated)),
         "criteria_missing": missing,
