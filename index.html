@@ -1664,11 +1664,8 @@
 <div id="welcome-screen" class="screen active">
   <div class="welcome-card">
     <h2>Transtornos de Ansiedade</h2>
-    <p style="font-size: 14px;">
-      Exercite a aplicação de seus conhecimentos sobre critérios diagnósticos
-      de transtornos de ansiedade (DSM-5-TR) na identificação e reconhecimento
-      de diferentes tipos de casos, através de simulação baseada em
-      Inteligência Artificial.
+    <p>
+      Exercite a aplicação de seus conhecimentos sobre critérios diagnósticos de transtornos de ansiedade (DSM-5-TR) na identificação e reconhecimento de diferentes tipos de casos, através de simulação baseada em Inteligência Artificial.
     </p>
 
     <div class="prerequisites-box">
@@ -1872,7 +1869,9 @@
             <line x1="9" y1="12" x2="15" y2="12"/>
             <line x1="9" y1="16" x2="15" y2="16"/>
           </svg>
-          Digite <strong>EEM</strong> para ir para o Exame do Estado Mental
+          Quando terminar a consulta:
+          <button type="button" class="btn btn-primary" style="margin-left:12px;padding:4px 14px;font-size:13px;" onclick="openEEMScreen()">Ir para o EEM</button>
+          <button type="button" class="btn btn-secondary" style="margin-left:8px;padding:4px 14px;font-size:13px;" onclick="skipToSurvey()">Encerrar consulta</button>
         </div>
       </div>
     </div>
@@ -1956,7 +1955,7 @@
               <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
               <polyline points="22 4 12 14.01 9 11.01"/>
             </svg>
-            Encerrar Simulação
+            Avançar para a Pesquisa
           </button>
         </div>
       </form>
@@ -2505,11 +2504,11 @@ async function sendMessage(text) {
     return;
   }
 
-  // ENCERRAR is no longer accepted in chat — must use EEM screen
+  // ENCERRAR command: go directly to survey (EEM is now optional)
   if (text.trim().toUpperCase() === "ENCERRAR") {
     messageInput.value = "";
     autoResize(messageInput);
-    addMessage("system", "Para encerrar a simulação, primeiro realize o Exame do Estado Mental. Digite EEM.");
+    skipToSurvey();
     return;
   }
 
@@ -2720,6 +2719,14 @@ async function endSession() {
   } catch (err) {
     console.error("Erro ao finalizar sessão:", err);
   }
+}
+
+// ─── Skip EEM — go directly to survey ───────────────────────────
+async function skipToSurvey() {
+  if (!sessionId) return;
+  // EEM was not completed — proceed without it
+  eemCompleted = false;
+  endSession();
 }
 
 // ─── Post-Screen Navigation ─────────────────────────────────────
