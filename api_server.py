@@ -881,6 +881,7 @@ async def finish_session(req: FinishRequest):
         raise HTTPException(status_code=404, detail="Sessão não encontrada")
 
     session["finished"] = True
+    session["finished_at"] = datetime.now().isoformat()
     profile = session["profile"]
     transtorno = profile["transtorno"]
 
@@ -940,10 +941,24 @@ def submit_survey(req: SurveyRequest):
     session = sessions.get(req.session_id)
     transtorno = session["profile"]["transtorno"] if session else "unknown"
 
+    # ── Calcular duração da sessão ───────────────────────────────────────
+    duracao_minutos = None
+    valido = None
+    if session and session.get("started_at") and session.get("finished_at"):
+        try:
+            started = datetime.fromisoformat(session["started_at"])
+            finished = datetime.fromisoformat(session["finished_at"])
+            duracao_minutos = round((finished - started).total_seconds() / 60, 1)
+            valido = 3 <= duracao_minutos <= 45
+        except Exception:
+            pass
+
     entry = {
         "timestamp": datetime.now().isoformat(),
         "session_id": req.session_id,
         "transtorno": transtorno,
+        "duracao_minutos": duracao_minutos,
+        "valido": valido,
         "responses": req.responses,
     }
 
@@ -976,6 +991,7 @@ def export_surveys():
 
     output = io.StringIO()
     fieldnames = ["timestamp", "session_id", "transtorno",
+                  "duracao_minutos", "valido",
                   "NPS1", "NPS2",
                   "SUS1", "SUS2", "SUS3", "SUS4", "SUS5", "SUS6", "SUS7", "SUS8", "SUS9", "SUS10",
                   "SUS_Score"]
@@ -983,10 +999,14 @@ def export_surveys():
     writer.writeheader()
 
     for s in surveys:
+        duracao = s.get("duracao_minutos")
+        valido = s.get("valido")
         row = {
             "timestamp": s.get("timestamp", ""),
             "session_id": s.get("session_id", ""),
             "transtorno": s.get("transtorno", ""),
+            "duracao_minutos": duracao if duracao is not None else "",
+            "valido": ("SIM" if valido else "NÃO") if valido is not None else "",
         }
         responses = s.get("responses", {})
         for q in ["NPS1", "NPS2"]:

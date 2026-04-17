@@ -3532,7 +3532,7 @@ async function loadAdminDashboard() {
       tableEl.innerHTML = '<div class="admin-empty">Nenhuma resposta registrada</div>';
     } else {
       let html = '<div class="admin-table-wrap"><table class="admin-table"><thead><tr>';
-      html += '<th>Data</th><th>Transtorno</th>';
+      html += '<th>Data</th><th>Transtorno</th><th>Duração (min)</th><th>Válido</th>';
       html += '<th style="color:var(--accent)">NPS1</th><th style="color:var(--accent)">NPS2</th>';
       for (let i = 1; i <= 10; i++) html += `<th>S${i}</th>`;
       html += '<th style="color:var(--accent)">SUS Score</th>';
@@ -3541,7 +3541,13 @@ async function loadAdminDashboard() {
       surveys.forEach(s => {
         const ts = s.timestamp ? new Date(s.timestamp).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : "--";
         const resp = s.responses || {};
-        html += `<tr><td>${ts}</td><td>${s.transtorno || "--"}</td>`;
+        const duracao = s.duracao_minutos != null ? s.duracao_minutos : null;
+        const invalido = duracao != null && (duracao < 3 || duracao > 45);
+        const rowStyle = invalido ? ' style="background:#fee2e2;color:#991b1b;"' : '';
+        const duracaoCell = duracao != null ? duracao.toFixed(1) : "--";
+        const validoCell = s.valido != null ? (s.valido ? '<span style="color:#16a34a;font-weight:700;">SIM</span>' : '<span style="color:#dc2626;font-weight:700;">NÃO</span>') : "--";
+        html += `<tr${rowStyle}><td>${ts}</td><td>${s.transtorno || "--"}</td>`;
+        html += `<td style="font-weight:600;">${duracaoCell}</td><td>${validoCell}</td>`;
         html += `<td style="font-weight:600;color:var(--accent)">${resp.NPS1 ?? "--"}</td>`;
         html += `<td style="font-weight:600;color:var(--accent)">${resp.NPS2 ?? "--"}</td>`;
         for (let i = 1; i <= 10; i++) html += `<td>${resp["SUS" + i] ?? "--"}</td>`;
@@ -3560,6 +3566,7 @@ async function loadAdminDashboard() {
       });
 
       html += '</tbody></table></div>';
+      html += '<p style="font-size:12px;color:#991b1b;margin-top:8px;">⚠️ Linhas em vermelho indicam sessões com duração &lt; 3 min ou &gt; 45 min e serão excluídas da análise estatística.</p>';
       tableEl.innerHTML = html;
     }
 
