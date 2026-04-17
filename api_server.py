@@ -730,7 +730,7 @@ def start_session():
         "messages": [],
         "criteria_tracked": {},
         "criteria_log": [],
-        "started_at": datetime.now().isoformat(),
+        "started_at": datetime.now(ZoneInfo("America/Belem")).isoformat(),
         "created_at": _time.time(),
         "finished": False,
         "eem_student": None,
@@ -881,7 +881,7 @@ async def finish_session(req: FinishRequest):
         raise HTTPException(status_code=404, detail="Sessão não encontrada")
 
     session["finished"] = True
-    session["finished_at"] = datetime.now().isoformat()
+    session["finished_at"] = datetime.now(ZoneInfo("America/Belem")).isoformat()
     profile = session["profile"]
     transtorno = profile["transtorno"]
 
@@ -954,7 +954,7 @@ def submit_survey(req: SurveyRequest):
             pass
 
     entry = {
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": datetime.now(ZoneInfo("America/Belem")).isoformat(),
         "session_id": req.session_id,
         "transtorno": transtorno,
         "duracao_minutos": duracao_minutos,
