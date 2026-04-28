@@ -663,6 +663,7 @@ def _cleanup_stale_sessions():
 SURVEY_DIR = Path("/data") if Path("/data").exists() and os.access("/data", os.W_OK) else Path(__file__).parent / "data"
 SURVEY_FILE = SURVEY_DIR / "surveys.json"
 SESSION_COUNT_FILE = SURVEY_DIR / "session_count.json"
+INTERACTIONS_DIR = SURVEY_DIR / "interactions"
 
 # ─── Admin Config ────────────────────────────────────────────────────────────
 ADMIN_USER = os.environ.get("ADMIN_USER", "admin")
@@ -917,7 +918,7 @@ async def finish_session(req: FinishRequest):
     if session.get("eem_student"):
         eem_evaluation = await _evaluate_eem(session)
 
-    return {
+    report_data = {
         "session_id": req.session_id,
         "score_pct": score_pct,
         "criteria_investigated": sorted(list(investigated)),
@@ -932,6 +933,87 @@ async def finish_session(req: FinishRequest):
         "eem_student": session.get("eem_student"),
         "eem_evaluation": eem_evaluation,
     }
+
+    # ── Persist interaction log ──────────────────────────────────────────
+    save_interaction_log(req.session_id, session, report_data)
+
+    return report_data
+
+
+# ─── Interaction Log ────────────────────────────────────────────────────────
+
+def save_interaction_log(session_id: str, session: dict, report: dict) -> None:
+    """Persist the full interaction log to /data/interactions/{session_id}.json.
+
+    The file is written atomically (temp file + rename) to avoid partial writes.
+    All data is already anonymous — session_id is a UUID with no student PII.
+    """
+    try:
+        INTERACTIONS_DIR.mkdir(parents=True, exist_ok=True)
+
+        profile = session["profile"]
+
+        # ── Duration ─────────────────────────────────────────────────────
+        duracao_minutos = None
+        valido = None
+        started_at = session.get("started_at")
+        finished_at = session.get("finished_at")
+        if started_at and finished_at:
+            try:
+                delta = (
+                    datetime.fromisoformat(finished_at)
+                    - datetime.fromisoformat(started_at)
+                )
+                duracao_minutos = round(delta.total_seconds() / 60, 1)
+                valido = 3 <= duracao_minutos <= 45
+            except Exception:
+                pass
+
+        entry = {
+            # ── Identificação ─────────────────────────────────────────
+            "session_id": session_id,
+            "saved_at": datetime.now(ZoneInfo("America/Belem")).isoformat(),
+
+            # ── Paciente ──────────────────────────────────────────────
+            "paciente": profile.get("nome"),
+            "transtorno": profile.get("transtorno"),
+            "diagnostico_real": profile.get("diagnostico_real"),
+
+            # ── Tempo ─────────────────────────────────────────────────
+            "started_at": started_at,
+            "finished_at": finished_at,
+            "duracao_minutos": duracao_minutos,
+            "valido": valido,
+            "total_turns": len(session["messages"]) // 2,
+
+            # ── Conversa completa ─────────────────────────────────────
+            "messages": session.get("messages", []),
+
+            # ── Rastreamento de critérios ─────────────────────────────
+            "criteria_tracked": session.get("criteria_tracked", {}),
+            "criteria_log": session.get("criteria_log", []),
+
+            # ── EEM ───────────────────────────────────────────────────
+            "eem_student": session.get("eem_student"),
+
+            # ── Relatório formativo ───────────────────────────────────
+            "report": {
+                "score_pct": report.get("score_pct"),
+                "criteria_investigated": report.get("criteria_investigated", []),
+                "criteria_missing": report.get("criteria_missing", []),
+                "quality_assessment": report.get("quality_assessment"),
+                "formative_tips": report.get("formative_tips", []),
+                "eem_evaluation": report.get("eem_evaluation"),
+            },
+        }
+
+        target = INTERACTIONS_DIR / f"{session_id}.json"
+        tmp = INTERACTIONS_DIR / f"{session_id}.tmp"
+        tmp.write_text(json.dumps(entry, ensure_ascii=False, indent=2), encoding="utf-8")
+        tmp.rename(target)
+
+    except Exception as exc:
+        logger.error(f"save_interaction_log failed for {session_id}: {exc}")
 
 
 # ─── Survey Endpoints ───────────────────────────────────────────────────────
@@ -1240,6 +1322,102 @@ def admin_survey_clear(token: str = Query(...)):
     if SURVEY_FILE.exists():
         SURVEY_FILE.unlink()
     return {"status": "ok", "message": "Dados de pesquisa removidos com sucesso"}
+
+
+# ─── Admin: Interaction Log Endpoints ───────────────────────────────────────
+
+@app.get("/api/admin/interactions")
+def admin_list_interactions(token: str = Query(...)):
+    """List all persisted interaction sessions — metadata only (no messages)."""
+    if not verify_admin_token(token):
+        raise HTTPException(status_code=401, detail="Token inválido ou expirado")
+
+    results = []
+    if INTERACTIONS_DIR.exists():
+        for f in sorted(INTERACTIONS_DIR.glob("*.json")):
+            try:
+                data = json.loads(f.read_text(encoding="utf-8"))
+                results.append({
+                    "session_id":      data.get("session_id"),
+                    "saved_at":        data.get("saved_at"),
+                    "paciente":        data.get("paciente"),
+                    "transtorno":      data.get("transtorno"),
+                    "started_at":      data.get("started_at"),
+                    "finished_at":     data.get("finished_at"),
+                    "duracao_minutos": data.get("duracao_minutos"),
+                    "valido":          data.get("valido"),
+                    "total_turns":     data.get("total_turns"),
+                    "score_pct":       data.get("report", {}).get("score_pct"),
+                })
+            except Exception:
+                continue
+
+    return {"total": len(results), "interactions": results}
+
+
+@app.get("/api/admin/interactions/export")
+def admin_export_interactions(token: str = Query(...)):
+    """Export all interaction sessions as a CSV file (metadata + scores, without message text)."""
+    if not verify_admin_token(token):
+        raise HTTPException(status_code=401, detail="Token inválido ou expirado")
+
+    rows = []
+    if INTERACTIONS_DIR.exists():
+        for f in sorted(INTERACTIONS_DIR.glob("*.json")):
+            try:
+                data = json.loads(f.read_text(encoding="utf-8"))
+                report = data.get("report", {})
+                rows.append({
+                    "session_id":           data.get("session_id", ""),
+                    "saved_at":             data.get("saved_at", ""),
+                    "paciente":             data.get("paciente", ""),
+                    "transtorno":           data.get("transtorno", ""),
+                    "diagnostico_real":     data.get("diagnostico_real", ""),
+                    "started_at":           data.get("started_at", ""),
+                    "finished_at":          data.get("finished_at", ""),
+                    "duracao_minutos":      data.get("duracao_minutos", ""),
+                    "valido":               ("SIM" if data.get("valido") else "NÃO") if data.get("valido") is not None else "",
+                    "total_turns":          data.get("total_turns", ""),
+                    "score_pct":            report.get("score_pct", ""),
+                    "criteria_investigated": "|".join(report.get("criteria_investigated", [])),
+                    "criteria_missing":      "|".join(report.get("criteria_missing", [])),
+                    "eem_preenchido":        "SIM" if data.get("eem_student") else "NÃO",
+                })
+            except Exception:
+                continue
+
+    output = io.StringIO()
+    fieldnames = [
+        "session_id", "saved_at", "paciente", "transtorno", "diagnostico_real",
+        "started_at", "finished_at", "duracao_minutos", "valido", "total_turns",
+        "score_pct", "criteria_investigated", "criteria_missing", "eem_preenchido",
+    ]
+    writer = csv.DictWriter(output, fieldnames=fieldnames)
+    writer.writeheader()
+    writer.writerows(rows)
+    output.seek(0)
+
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=interactions.csv"},
+    )
+
+
+@app.get("/api/admin/interactions/{session_id}")
+def admin_get_interaction(session_id: str, token: str = Query(...)):
+    """Return the full interaction log for a specific session (includes messages)."""
+    if not verify_admin_token(token):
+        raise HTTPException(status_code=401, detail="Token inválido ou expirado")
+
+    target = INTERACTIONS_DIR / f"{session_id}.json"
+    if not target.exists():
+        raise HTTPException(status_code=404, detail="Sessão não encontrada no log de interações")
+
+    try:
+        return json.loads(target.read_text(encoding="utf-8"))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Erro ao ler log: {exc}")
 
 
 # ─── Health Check ───────────────────────────────────────────────────────────
