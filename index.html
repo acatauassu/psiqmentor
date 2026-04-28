@@ -1692,6 +1692,114 @@
 
   </div>
   <a class="admin-link" id="adminLink">Admin</a>
+  <a class="admin-link" id="expertLink" style="right:70px">Especialistas</a>
+</div>
+
+<!-- ═══ Expert Screen ═══════════════════════════════════════════════ -->
+<div id="expert-screen" class="screen" style="display:none">
+  <div class="admin-header">
+    <h2>Portal do Especialista — PsiqMentor</h2>
+    <button class="admin-logout" id="expertLogoutBtn">Sair</button>
+  </div>
+  <div class="admin-dashboard">
+    <div class="admin-cards">
+      <div class="admin-card" style="width:100%">
+        <h3>Bem-vindo(a), <span id="expertName">--</span></h3>
+        <p style="color:var(--text-secondary);font-size:14px;margin:8px 0 0">
+          Abaixo estão as transcrições disponíveis para avaliação. Clique em uma sessão para visualizar a transcrição completa e preencher os instrumentos de avaliação.
+        </p>
+      </div>
+    </div>
+    <div class="admin-section">
+      <h3>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        Transcrições Disponíveis
+      </h3>
+      <div id="expertTranscriptList"><div class="admin-empty">Carregando...</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ Expert Transcript + Evaluation Screen ═══════════════════════ -->
+<div id="expert-transcript-screen" class="screen" style="display:none">
+  <div class="admin-header">
+    <h2>Avaliação da Sessão — <span id="evalSessionId" style="font-family:monospace;font-size:16px"></span></h2>
+    <button class="admin-logout" id="evalBackBtn">← Voltar</button>
+  </div>
+  <div class="admin-dashboard">
+
+    <!-- Metadata -->
+    <div class="admin-cards">
+      <div class="admin-card">
+        <h3>Dados da Sessão</h3>
+        <div class="admin-stat"><span class="label">Transtorno</span><span class="value" id="evalTranstorno">--</span></div>
+        <div class="admin-stat"><span class="label">Diagnóstico</span><span class="value" id="evalDiagnostico">--</span></div>
+        <div class="admin-stat"><span class="label">Paciente Virtual</span><span class="value" id="evalPaciente">--</span></div>
+        <div class="admin-stat"><span class="label">Duração</span><span class="value" id="evalDuracao">--</span></div>
+        <div class="admin-stat"><span class="label">Turnos</span><span class="value" id="evalTurnos">--</span></div>
+        <div class="admin-stat"><span class="label">Score do Aluno</span><span class="value" id="evalScore">--</span></div>
+      </div>
+      <div class="admin-card">
+        <h3>Critérios DSM-5-TR</h3>
+        <div style="font-size:13px;margin-bottom:6px;color:var(--text-secondary)">Investigados</div>
+        <div id="evalCriteriaInv" style="font-size:13px;color:#16a34a;font-weight:600;margin-bottom:12px">--</div>
+        <div style="font-size:13px;margin-bottom:6px;color:var(--text-secondary)">Não investigados</div>
+        <div id="evalCriteriaMiss" style="font-size:13px;color:#dc2626;font-weight:600">--</div>
+        <div style="margin-top:16px">
+          <button class="btn btn-secondary" id="evalExportTxtBtn" style="width:100%">
+            ⬇ Exportar Transcrição (.txt)
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Full Transcript -->
+    <div class="admin-section">
+      <h3>Transcrição Completa</h3>
+      <div id="evalTranscriptBox" style="background:var(--bg-secondary,#f8f9fa);border-radius:8px;padding:16px;max-height:400px;overflow-y:auto;font-size:13px;line-height:1.7"></div>
+    </div>
+
+    <!-- Formative Report -->
+    <div class="admin-section" id="evalReportSection">
+      <h3>Relatório Formativo Gerado pela IA</h3>
+      <div id="evalReportBox" style="font-size:13px;line-height:1.7"></div>
+    </div>
+
+    <!-- Instrument A -->
+    <div class="admin-section">
+      <h3>Instrumento A — IA como Paciente Simulado</h3>
+      <p style="font-size:13px;color:var(--text-secondary);margin-bottom:16px">
+        Escala: 1 = Discordo totalmente &nbsp;|&nbsp; 2 = Discordo &nbsp;|&nbsp; 3 = Neutro &nbsp;|&nbsp; 4 = Concordo &nbsp;|&nbsp; 5 = Concordo totalmente
+      </p>
+      <div id="instrumentA"></div>
+      <div style="margin-top:16px">
+        <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px">Comentários e observações (opcional)</label>
+        <textarea id="commentsA" rows="4" style="width:100%;padding:10px;border:1px solid var(--border,#e2e8f0);border-radius:6px;font-size:13px;resize:vertical" placeholder="Observações sobre a performance da IA como paciente simulado..."></textarea>
+      </div>
+    </div>
+
+    <!-- Instrument B -->
+    <div class="admin-section">
+      <h3>Instrumento B — IA como Ferramenta de Autoaprendizado</h3>
+      <p style="font-size:13px;color:var(--text-secondary);margin-bottom:16px">
+        Escala: 1 = Discordo totalmente &nbsp;|&nbsp; 2 = Discordo &nbsp;|&nbsp; 3 = Neutro &nbsp;|&nbsp; 4 = Concordo &nbsp;|&nbsp; 5 = Concordo totalmente
+      </p>
+      <div id="instrumentB"></div>
+      <div style="margin-top:16px">
+        <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px">Comentários e observações (opcional)</label>
+        <textarea id="commentsB" rows="4" style="width:100%;padding:10px;border:1px solid var(--border,#e2e8f0);border-radius:6px;font-size:13px;resize:vertical" placeholder="Observações sobre a qualidade do feedback formativo gerado..."></textarea>
+      </div>
+    </div>
+
+    <!-- Submit -->
+    <div style="display:flex;gap:12px;justify-content:center;margin:24px 0 32px;flex-wrap:wrap">
+      <button class="btn btn-primary" id="evalSubmitBtn" style="padding:14px 36px;font-size:15px">
+        ✔ Salvar Avaliação
+      </button>
+      <div id="evalSubmitMsg" style="width:100%;text-align:center;font-size:14px;min-height:20px"></div>
+    </div>
+
+  </div>
 </div>
 
 <!-- ═══ Admin Login Screen ═════════════════════════════════════════ -->
@@ -1832,6 +1940,36 @@
       <div id="susAnalysisContent">
         <div class="admin-empty">Carregando análise SUS...</div>
       </div>
+    </div>
+
+    <!-- Specialists Management -->
+    <div class="admin-cards" style="margin-top:0">
+      <div class="admin-card" style="width:100%">
+        <h3>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          Especialistas
+        </h3>
+        <div style="display:flex;gap:10px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
+          <input type="text" id="newExpertName" placeholder="Nome do especialista (ex: Dra. Ana Silva)" style="flex:1;min-width:200px;padding:8px 12px;border:1px solid var(--border,#e2e8f0);border-radius:6px;font-size:13px">
+          <button class="btn btn-primary" id="addExpertBtn">+ Adicionar</button>
+        </div>
+        <div id="expertsList"><div class="admin-empty">Nenhum especialista cadastrado</div></div>
+      </div>
+    </div>
+
+    <!-- Expert Evaluations -->
+    <div class="admin-section">
+      <h3>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        Avaliações Recebidas de Especialistas
+      </h3>
+      <div class="admin-btn-row" style="margin-bottom:12px">
+        <button class="btn btn-secondary" id="adminExpertEvalExportBtn">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Exportar CSV (todas as avaliações)
+        </button>
+      </div>
+      <div id="expertEvalTable"><div class="admin-empty">Nenhuma avaliação recebida ainda</div></div>
     </div>
 
     <!-- Analysis Report Buttons -->
@@ -3505,6 +3643,7 @@ adminBackToApp.addEventListener("click", () => {
 // Load dashboard data
 async function loadAdminDashboard() {
   if (!adminToken) return;
+  loadAdminExperts();
 
   try {
     const [dashRes, dataRes, interRes] = await Promise.all([
@@ -3865,6 +4004,364 @@ adminClearBtn.addEventListener("click", async () => {
   } catch (err) {
     alert("Erro de conex\u00e3o.");
   }
+});
+
+// ─── Expert Portal ──────────────────────────────────────────────────────────
+
+const INSTRUMENT_A = [
+  { id: "PA1", text: "Os sintomas apresentados foram clinicamente fidedignos ao transtorno representado" },
+  { id: "PA2", text: "As respostas do paciente foram coerentes ao longo de toda a entrevista" },
+  { id: "PA3", text: "A linguagem utilizada foi natural e adequada ao perfil sociocultural do paciente" },
+  { id: "PA4", text: "Os comportamentos não-verbais descritos foram clinicamente pertinentes" },
+  { id: "PA5", text: "O paciente respondeu de forma adequada tanto a perguntas diretas quanto abertas" },
+  { id: "PA6", text: "O nível de revelação gradual das informações foi realístico" },
+  { id: "PA7", text: "O paciente demonstrou reações emocionais apropriadas ao contexto clínico" },
+  { id: "PA8", text: "Avaliação global: o paciente simulado é adequado para treinamento de estudantes de medicina" },
+];
+
+const INSTRUMENT_B = [
+  { id: "PB1", text: "O feedback formativo gerado foi pedagogicamente adequado" },
+  { id: "PB2", text: "Os critérios DSM-5-TR identificados durante a entrevista foram precisos" },
+  { id: "PB3", text: "As dicas formativas foram relevantes e clinicamente corretas" },
+  { id: "PB4", text: "O score de cobertura refletiu adequadamente o desempenho do aluno" },
+  { id: "PB5", text: "A avaliação do Exame do Estado Mental foi clinicamente apropriada" },
+  { id: "PB6", text: "A avaliação qualitativa das 6 dimensões da entrevista foi precisa" },
+  { id: "PB7", text: "A ferramenta pode identificar lacunas relevantes na formação clínica do aluno" },
+  { id: "PB8", text: "A ferramenta tem potencial para uso no ensino de Psiquiatria" },
+];
+
+const LIKERT_LABELS = ["", "Discordo totalmente", "Discordo", "Neutro", "Concordo", "Concordo totalmente"];
+
+const expertScreen         = document.getElementById("expert-screen");
+const expertTranscriptScreen = document.getElementById("expert-transcript-screen");
+const expertLink           = document.getElementById("expertLink");
+const expertLogoutBtn      = document.getElementById("expertLogoutBtn");
+const evalBackBtn          = document.getElementById("evalBackBtn");
+const evalSubmitBtn        = document.getElementById("evalSubmitBtn");
+const evalExportTxtBtn     = document.getElementById("evalExportTxtBtn");
+
+let expertToken   = null;
+let currentTranscriptId = null;
+
+// ── Auto-login via ?expert=TOKEN in URL ──────────────────────────────────────
+(async () => {
+  const params = new URLSearchParams(window.location.search);
+  const t = params.get("expert");
+  if (!t) return;
+  try {
+    const res = await fetch(`${API}/api/expert/me?token=${t}`);
+    if (res.ok) {
+      const data = await res.json();
+      expertToken = t;
+      document.getElementById("expertName").textContent = data.name;
+      showScreen(expertScreen);
+      loadExpertTranscripts();
+    }
+  } catch (e) { /* silent */ }
+})();
+
+expertLink.addEventListener("click", () => {
+  const t = prompt("Cole aqui o seu link de acesso (token):");
+  if (t) window.location.href = `?expert=${t.trim()}`;
+});
+
+expertLogoutBtn.addEventListener("click", () => {
+  expertToken = null;
+  history.replaceState({}, "", window.location.pathname);
+  showScreen(document.getElementById("welcome-screen"));
+});
+
+evalBackBtn.addEventListener("click", () => showScreen(expertScreen));
+
+// ── Load transcript list ──────────────────────────────────────────────────────
+async function loadExpertTranscripts() {
+  const el = document.getElementById("expertTranscriptList");
+  el.innerHTML = '<div class="admin-empty">Carregando...</div>';
+  try {
+    const res = await fetch(`${API}/api/expert/transcripts?token=${expertToken}`);
+    if (!res.ok) { el.innerHTML = '<div class="admin-empty">Erro ao carregar transcrições.</div>'; return; }
+    const data = await res.json();
+    const list = data.transcripts || [];
+    if (list.length === 0) {
+      el.innerHTML = '<div class="admin-empty">Nenhuma transcrição disponível ainda.</div>';
+      return;
+    }
+    let html = '<div class="admin-table-wrap"><table class="admin-table"><thead><tr>';
+    html += '<th>Data</th><th>ID (8 car.)</th><th>Transtorno</th><th>Turnos</th><th>Duração (min)</th><th>Score</th><th>Avaliado</th><th></th>';
+    html += '</tr></thead><tbody>';
+    list.forEach(s => {
+      const ts  = s.saved_at ? new Date(s.saved_at).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : "--";
+      const dur = s.duracao_minutos != null ? parseFloat(s.duracao_minutos).toFixed(1) : "--";
+      const score = s.score_pct != null ? `${s.score_pct}%` : "--";
+      const avBadge = s.avaliado
+        ? '<span style="color:#16a34a;font-weight:700;">✔ Sim</span>'
+        : '<span style="color:#94a3b8;">Pendente</span>';
+      html += `<tr>
+        <td>${ts}</td>
+        <td style="font-family:monospace;font-size:12px">${s.aluno_id}</td>
+        <td>${s.transtorno || "--"}</td>
+        <td style="text-align:center">${s.total_turns ?? "--"}</td>
+        <td style="text-align:center">${dur}</td>
+        <td style="text-align:center;font-weight:700">${score}</td>
+        <td style="text-align:center">${avBadge}</td>
+        <td><button class="btn btn-secondary" style="padding:4px 12px;font-size:12px" onclick="openTranscript('${s.session_id}')">
+          ${s.avaliado ? "Ver / Editar" : "Avaliar"}
+        </button></td>
+      </tr>`;
+    });
+    html += '</tbody></table></div>';
+    el.innerHTML = html;
+  } catch (e) {
+    el.innerHTML = '<div class="admin-empty">Erro de conexão.</div>';
+  }
+}
+
+// ── Open transcript + evaluation ──────────────────────────────────────────────
+function renderInstrument(containerId, items, prefix, existingResponses) {
+  const el = document.getElementById(containerId);
+  let html = '';
+  items.forEach((item, idx) => {
+    html += `<div style="margin-bottom:18px;padding:12px;background:var(--bg-secondary,#f8f9fa);border-radius:6px">
+      <div style="font-size:13px;font-weight:600;margin-bottom:10px">${idx + 1}. ${item.text}</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">`;
+    for (let v = 1; v <= 5; v++) {
+      const checked = existingResponses && existingResponses[item.id] == v ? "checked" : "";
+      html += `<label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;padding:4px 8px;border:1px solid var(--border,#e2e8f0);border-radius:4px;${checked ? 'background:#dbeafe;border-color:#3b82f6;font-weight:700' : ''}">
+        <input type="radio" name="${item.id}" value="${v}" ${checked} style="margin:0"> ${v} — ${LIKERT_LABELS[v]}
+      </label>`;
+    }
+    html += '</div></div>';
+  });
+  el.innerHTML = html;
+}
+
+async function openTranscript(sessionId) {
+  currentTranscriptId = sessionId;
+  document.getElementById("evalSessionId").textContent = sessionId.slice(0, 8);
+  document.getElementById("evalTranscriptBox").innerHTML = '<div class="admin-empty">Carregando...</div>';
+  showScreen(expertTranscriptScreen);
+
+  try {
+    const [tRes, eRes] = await Promise.all([
+      fetch(`${API}/api/expert/transcripts/${sessionId}?token=${expertToken}`),
+      fetch(`${API}/api/expert/evaluations/${sessionId}?token=${expertToken}`),
+    ]);
+    const t = await tRes.json();
+    const ev = eRes.ok ? (await eRes.json()).evaluation : null;
+
+    // Metadata
+    document.getElementById("evalTranstorno").textContent   = t.transtorno || "--";
+    document.getElementById("evalDiagnostico").textContent  = t.diagnostico_real || "--";
+    document.getElementById("evalPaciente").textContent     = t.paciente || "--";
+    document.getElementById("evalDuracao").textContent      = t.duracao_minutos != null ? `${t.duracao_minutos} min` : "--";
+    document.getElementById("evalTurnos").textContent       = t.total_turns ?? "--";
+    document.getElementById("evalScore").textContent        = t.report?.score_pct != null ? `${t.report.score_pct}%` : "--";
+    document.getElementById("evalCriteriaInv").textContent  = (t.criteria_investigated || []).join(", ") || "--";
+    document.getElementById("evalCriteriaMiss").textContent = (t.criteria_missing || []).join(", ") || "--";
+
+    // Transcript
+    const msgs = t.messages || [];
+    let tHtml = msgs.map(m => {
+      const isAluno = m.emissor === "Aluno";
+      return `<div style="margin-bottom:12px">
+        <span style="font-weight:700;font-size:12px;color:${isAluno ? '#1d4ed8' : '#16a34a'}">${m.emissor}:</span>
+        <span style="margin-left:6px;font-size:13px">${m.texto}</span>
+      </div>`;
+    }).join("");
+    document.getElementById("evalTranscriptBox").innerHTML = tHtml || '<div class="admin-empty">Sem mensagens</div>';
+
+    // Formative report
+    const rep = t.report || {};
+    let rHtml = `<div style="margin-bottom:8px"><strong>Score:</strong> ${rep.score_pct ?? "--"}%</div>`;
+    if (rep.formative_tips?.length) {
+      rHtml += `<div style="margin-bottom:8px"><strong>Dicas Formativas:</strong><ul style="margin:4px 0 0 18px;font-size:13px">`;
+      rep.formative_tips.forEach(tip => { rHtml += `<li>${tip}</li>`; });
+      rHtml += '</ul></div>';
+    }
+    if (rep.quality_assessment) {
+      rHtml += '<div style="margin-top:8px"><strong>Avaliação Qualitativa:</strong></div>';
+      Object.entries(rep.quality_assessment).forEach(([dim, val]) => {
+        if (typeof val === 'object') {
+          rHtml += `<div style="font-size:12px;margin:4px 0 0 12px"><em>${dim}:</em> ${val.classification || ''} — ${val.justification || ''}</div>`;
+        }
+      });
+    }
+    document.getElementById("evalReportBox").innerHTML = rHtml;
+
+    // Instruments — pre-fill if already evaluated
+    const iaResp = ev?.instrument_a?.responses || null;
+    const ibResp = ev?.instrument_b?.responses || null;
+    renderInstrument("instrumentA", INSTRUMENT_A, "PA", iaResp);
+    renderInstrument("instrumentB", INSTRUMENT_B, "PB", ibResp);
+    if (ev?.instrument_a?.comments) document.getElementById("commentsA").value = ev.instrument_a.comments;
+    if (ev?.instrument_b?.comments) document.getElementById("commentsB").value = ev.instrument_b.comments;
+
+    document.getElementById("evalSubmitMsg").textContent = ev ? "✔ Você já avaliou esta sessão. Pode atualizar abaixo." : "";
+    document.getElementById("evalSubmitMsg").style.color = ev ? "#16a34a" : "";
+
+  } catch (e) {
+    document.getElementById("evalTranscriptBox").innerHTML = '<div class="admin-empty">Erro ao carregar transcrição.</div>';
+  }
+}
+
+// ── Submit evaluation ─────────────────────────────────────────────────────────
+evalSubmitBtn.addEventListener("click", async () => {
+  const collectResponses = (items) => {
+    const resp = {};
+    for (const item of items) {
+      const val = document.querySelector(`input[name="${item.id}"]:checked`);
+      if (!val) { alert(`Por favor, responda todos os itens (${item.id} não preenchido).`); return null; }
+      resp[item.id] = parseInt(val.value);
+    }
+    return resp;
+  };
+  const ia = collectResponses(INSTRUMENT_A); if (!ia) return;
+  const ib = collectResponses(INSTRUMENT_B); if (!ib) return;
+
+  evalSubmitBtn.disabled = true;
+  evalSubmitBtn.textContent = "Salvando...";
+  try {
+    const res = await fetch(`${API}/api/expert/evaluations/${currentTranscriptId}?token=${expertToken}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        instrument_a: ia,
+        instrument_b: ib,
+        comments_a: document.getElementById("commentsA").value,
+        comments_b: document.getElementById("commentsB").value,
+      }),
+    });
+    if (res.ok) {
+      document.getElementById("evalSubmitMsg").textContent = "✔ Avaliação salva com sucesso!";
+      document.getElementById("evalSubmitMsg").style.color = "#16a34a";
+    } else {
+      document.getElementById("evalSubmitMsg").textContent = "Erro ao salvar. Tente novamente.";
+      document.getElementById("evalSubmitMsg").style.color = "#dc2626";
+    }
+  } catch (e) {
+    document.getElementById("evalSubmitMsg").textContent = "Erro de conexão.";
+    document.getElementById("evalSubmitMsg").style.color = "#dc2626";
+  }
+  evalSubmitBtn.disabled = false;
+  evalSubmitBtn.textContent = "✔ Salvar Avaliação";
+});
+
+// ── Export transcript as TXT ──────────────────────────────────────────────────
+evalExportTxtBtn.addEventListener("click", () => {
+  if (currentTranscriptId) {
+    window.open(`${API}/api/expert/transcripts/${currentTranscriptId}/export?token=${expertToken}`, "_blank");
+  }
+});
+
+// ─── Admin: Specialists Management ──────────────────────────────────────────
+
+const addExpertBtn          = document.getElementById("addExpertBtn");
+const adminExpertEvalExportBtn = document.getElementById("adminExpertEvalExportBtn");
+
+async function loadAdminExperts() {
+  if (!adminToken) return;
+  try {
+    const [expRes, evalRes] = await Promise.all([
+      fetch(`${API}/api/admin/experts?token=${adminToken}`),
+      fetch(`${API}/api/admin/expert/evaluations?token=${adminToken}`),
+    ]);
+    if (expRes.ok) {
+      const data = await expRes.json();
+      const experts = data.experts || [];
+      const listEl = document.getElementById("expertsList");
+      if (experts.length === 0) {
+        listEl.innerHTML = '<div class="admin-empty">Nenhum especialista cadastrado</div>';
+      } else {
+        let html = '<div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>Nome</th><th>Cadastrado em</th><th>Status</th><th>Avaliações</th><th>Link de Acesso</th><th></th></tr></thead><tbody>';
+        experts.forEach(e => {
+          const ts = e.created_at ? new Date(e.created_at).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : "--";
+          const status = e.active ? '<span style="color:#16a34a;font-weight:700;">Ativo</span>' : '<span style="color:#94a3b8;">Revogado</span>';
+          const link = `${window.location.origin}${window.location.pathname}?expert=${e.token}`;
+          html += `<tr>
+            <td style="font-weight:600">${e.name}</td>
+            <td>${ts}</td>
+            <td>${status}</td>
+            <td style="text-align:center">${e.evaluations_count ?? 0}</td>
+            <td style="font-size:11px;font-family:monospace;max-width:180px;overflow:hidden;text-overflow:ellipsis">
+              ${e.active ? `<button class="btn btn-secondary" style="padding:3px 8px;font-size:11px" onclick="copyExpertLink('${link}')">📋 Copiar link</button>` : '--'}
+            </td>
+            <td>${e.active ? `<button class="btn btn-danger" style="padding:3px 10px;font-size:12px" onclick="revokeExpert('${e.token}')">Revogar</button>` : ''}</td>
+          </tr>`;
+        });
+        html += '</tbody></table></div>';
+        listEl.innerHTML = html;
+      }
+    }
+    if (evalRes.ok) {
+      const evData = await evalRes.json();
+      const evals = evData.evaluations || [];
+      const evalEl = document.getElementById("expertEvalTable");
+      if (evals.length === 0) {
+        evalEl.innerHTML = '<div class="admin-empty">Nenhuma avaliação recebida ainda</div>';
+      } else {
+        let html = '<div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>Especialista</th><th>Data</th><th>ID Sessão</th><th>Transtorno</th><th>Score Aluno</th></tr></thead><tbody>';
+        evals.forEach(ev => {
+          const ts = ev.evaluated_at ? new Date(ev.evaluated_at).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : "--";
+          html += `<tr>
+            <td style="font-weight:600">${ev.expert_name || "--"}</td>
+            <td>${ts}</td>
+            <td style="font-family:monospace;font-size:12px">${(ev.session_id || "").slice(0,8)}</td>
+            <td>${ev.transtorno || "--"}</td>
+            <td style="text-align:center;font-weight:700">${ev.score_pct != null ? ev.score_pct + "%" : "--"}</td>
+          </tr>`;
+        });
+        html += '</tbody></table></div>';
+        evalEl.innerHTML = html;
+      }
+    }
+  } catch (e) { /* silent */ }
+}
+
+function copyExpertLink(link) {
+  navigator.clipboard.writeText(link).then(() => alert("Link copiado!\n\n" + link)).catch(() => prompt("Copie o link abaixo:", link));
+}
+
+async function revokeExpert(expertTk) {
+  if (!confirm("Revogar acesso deste especialista? O link deixará de funcionar.")) return;
+  try {
+    const res = await fetch(`${API}/api/admin/experts/${expertTk}/revoke?token=${adminToken}`, { method: "POST" });
+    if (res.ok) { loadAdminExperts(); }
+    else alert("Erro ao revogar acesso.");
+  } catch (e) { alert("Erro de conexão."); }
+}
+
+addExpertBtn.addEventListener("click", async () => {
+  const name = document.getElementById("newExpertName").value.trim();
+  if (!name) { alert("Digite o nome do especialista."); return; }
+  try {
+    const res = await fetch(`${API}/api/admin/experts?token=${adminToken}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const link = `${window.location.origin}${window.location.pathname}?expert=${data.token}`;
+      document.getElementById("newExpertName").value = "";
+      await loadAdminExperts();
+      setTimeout(() => {
+        if (navigator.clipboard) {
+          navigator.clipboard.writeText(link).then(() =>
+            alert(`✔ Especialista "${data.name}" cadastrado!\n\nLink copiado para a área de transferência:\n${link}`)
+          ).catch(() => prompt(`Link de acesso para "${data.name}":`, link));
+        } else {
+          prompt(`Link de acesso para "${data.name}":`, link);
+        }
+      }, 100);
+    } else {
+      const err = await res.json();
+      alert("Erro: " + (err.detail || "Não foi possível cadastrar."));
+    }
+  } catch (e) { alert("Erro de conexão."); }
+});
+
+adminExpertEvalExportBtn.addEventListener("click", () => {
+  window.open(`${API}/api/admin/expert/evaluations/export?token=${adminToken}`, "_blank");
 });
 
 // ─── PDF Analysis Report Generation ────────────────────────────────────────

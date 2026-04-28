@@ -663,12 +663,51 @@ def _cleanup_stale_sessions():
 SURVEY_DIR = Path("/data") if Path("/data").exists() and os.access("/data", os.W_OK) else Path(__file__).parent / "data"
 SURVEY_FILE = SURVEY_DIR / "surveys.json"
 SESSION_COUNT_FILE = SURVEY_DIR / "session_count.json"
-INTERACTIONS_DIR = SURVEY_DIR / "interactions"
+INTERACTIONS_DIR  = SURVEY_DIR / "interactions"
+EVALUATIONS_DIR   = SURVEY_DIR / "expert_evaluations"
+EXPERTS_FILE      = SURVEY_DIR / "experts.json"
 
 # ─── Admin Config ────────────────────────────────────────────────────────────
 ADMIN_USER = os.environ.get("ADMIN_USER", "admin")
 ADMIN_PASS = os.environ.get("ADMIN_PASS", "Mestrado2026")
 ADMIN_TOKENS: dict = {}  # token -> expiry timestamp
+
+# ─── Expert Config ───────────────────────────────────────────────────────────
+EXPERT_TOKENS: dict = {}  # expert_token -> {"name": str, "expiry": float}
+
+
+def _load_experts() -> list:
+    """Load registered experts from persistent storage."""
+    if not EXPERTS_FILE.exists():
+        return []
+    try:
+        return json.loads(EXPERTS_FILE.read_text(encoding="utf-8")).get("experts", [])
+    except Exception:
+        return []
+
+
+def _save_experts(experts: list) -> None:
+    SURVEY_DIR.mkdir(parents=True, exist_ok=True)
+    EXPERTS_FILE.write_text(json.dumps({"experts": experts}, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def verify_expert_token(token: str) -> dict | None:
+    """Return expert info dict if token is valid and active, else None."""
+    if not token:
+        return None
+    # Check in-memory cache first
+    if token in EXPERT_TOKENS:
+        info = EXPERT_TOKENS[token]
+        if time.time() < info["expiry"]:
+            return info
+        del EXPERT_TOKENS[token]
+    # Fall back to persistent storage (server restart)
+    for exp in _load_experts():
+        if exp.get("token") == token and exp.get("active", True):
+            # Re-hydrate into memory with 24h expiry from now
+            EXPERT_TOKENS[token] = {"name": exp["name"], "expiry": time.time() + 86400}
+            return EXPERT_TOKENS[token]
+    return None
 
 
 def verify_admin_token(token: str) -> bool:
@@ -708,6 +747,17 @@ class EEMSubmitRequest(BaseModel):
 class AdminLoginRequest(BaseModel):
     username: str
     password: str
+
+
+class ExpertCreateRequest(BaseModel):
+    name: str  # e.g. "Dra. Ana Silva"
+
+
+class ExpertEvaluationRequest(BaseModel):
+    instrument_a: dict   # {"PA1": int, ..., "PA8": int}
+    instrument_b: dict   # {"PB1": int, ..., "PB8": int}
+    comments_a: str = ""
+    comments_b: str = ""
 
 
 # ─── Endpoints ──────────────────────────────────────────────────────────────
@@ -1581,6 +1631,409 @@ Responda com JSON:
 
     logger.error("EEM evaluation failed after 2 attempts, returning fallback")
     return fallback
+
+
+# ─── Admin: Gestão de Especialistas ─────────────────────────────────────────
+
+@app.post("/api/admin/experts")
+def admin_create_expert(req: ExpertCreateRequest, token: str = Query(...)):
+    """Register a new specialist and return their unique access token."""
+    if not verify_admin_token(token):
+        raise HTTPException(status_code=401, detail="Token inválido ou expirado")
+    if not req.name.strip():
+        raise HTTPException(status_code=400, detail="Nome do especialista é obrigatório")
+
+    experts = _load_experts()
+    # Prevent duplicate names
+    if any(e["name"].lower() == req.name.strip().lower() and e.get("active", True) for e in experts):
+        raise HTTPException(status_code=400, detail="Já existe um especialista ativo com esse nome")
+
+    expert_token = secrets.token_urlsafe(24)
+    entry = {
+        "token": expert_token,
+        "name": req.name.strip(),
+        "created_at": datetime.now(ZoneInfo("America/Belem")).isoformat(),
+        "active": True,
+        "evaluations_count": 0,
+    }
+    experts.append(entry)
+    _save_experts(experts)
+    # Hydrate into memory
+    EXPERT_TOKENS[expert_token] = {"name": entry["name"], "expiry": time.time() + 86400 * 365}
+
+    return {"token": expert_token, "name": entry["name"], "created_at": entry["created_at"]}
+
+
+@app.post("/api/admin/experts/{expert_token}/revoke")
+def admin_revoke_expert(expert_token: str, token: str = Query(...)):
+    """Revoke a specialist's access token."""
+    if not verify_admin_token(token):
+        raise HTTPException(status_code=401, detail="Token inválido ou expirado")
+
+    experts = _load_experts()
+    found = False
+    for e in experts:
+        if e["token"] == expert_token:
+            e["active"] = False
+            found = True
+            break
+    if not found:
+        raise HTTPException(status_code=404, detail="Especialista não encontrado")
+
+    _save_experts(experts)
+    EXPERT_TOKENS.pop(expert_token, None)
+    return {"status": "revoked"}
+
+
+@app.get("/api/admin/experts")
+def admin_list_experts(token: str = Query(...)):
+    """List all registered specialists and their evaluation counts."""
+    if not verify_admin_token(token):
+        raise HTTPException(status_code=401, detail="Token inválido ou expirado")
+
+    experts = _load_experts()
+    # Enrich with evaluation counts from disk
+    for e in experts:
+        count = 0
+        if EVALUATIONS_DIR.exists():
+            for f in EVALUATIONS_DIR.glob("*.json"):
+                try:
+                    ev = json.loads(f.read_text(encoding="utf-8"))
+                    if ev.get("expert_token") == e["token"]:
+                        count += 1
+                except Exception:
+                    pass
+        e["evaluations_count"] = count
+    return {"experts": experts}
+
+
+@app.get("/api/admin/expert/evaluations")
+def admin_list_evaluations(token: str = Query(...)):
+    """List all expert evaluations with metadata."""
+    if not verify_admin_token(token):
+        raise HTTPException(status_code=401, detail="Token inválido ou expirado")
+
+    results = []
+    if EVALUATIONS_DIR.exists():
+        for f in sorted(EVALUATIONS_DIR.glob("*.json")):
+            try:
+                ev = json.loads(f.read_text(encoding="utf-8"))
+                results.append({
+                    "session_id":   ev.get("session_id"),
+                    "expert_name":  ev.get("expert_name"),
+                    "evaluated_at": ev.get("evaluated_at"),
+                    "paciente":     ev.get("paciente"),
+                    "transtorno":   ev.get("transtorno"),
+                    "score_pct":    ev.get("score_pct"),
+                })
+            except Exception:
+                continue
+    return {"total": len(results), "evaluations": results}
+
+
+@app.get("/api/admin/expert/evaluations/export")
+def admin_export_evaluations(token: str = Query(...)):
+    """Export all expert evaluations as CSV."""
+    if not verify_admin_token(token):
+        raise HTTPException(status_code=401, detail="Token inválido ou expirado")
+
+    rows = []
+    if EVALUATIONS_DIR.exists():
+        for f in sorted(EVALUATIONS_DIR.glob("*.json")):
+            try:
+                ev = json.loads(f.read_text(encoding="utf-8"))
+                ia = ev.get("instrument_a", {}).get("responses", {})
+                ib = ev.get("instrument_b", {}).get("responses", {})
+                row = {
+                    "session_id":   ev.get("session_id", ""),
+                    "expert_name":  ev.get("expert_name", ""),
+                    "evaluated_at": ev.get("evaluated_at", ""),
+                    "paciente":     ev.get("paciente", ""),
+                    "transtorno":   ev.get("transtorno", ""),
+                    "score_pct":    ev.get("score_pct", ""),
+                    "comments_a":   ev.get("instrument_a", {}).get("comments", ""),
+                    "comments_b":   ev.get("instrument_b", {}).get("comments", ""),
+                }
+                for i in range(1, 9):
+                    row[f"PA{i}"] = ia.get(f"PA{i}", "")
+                    row[f"PB{i}"] = ib.get(f"PB{i}", "")
+                rows.append(row)
+            except Exception:
+                continue
+
+    output = io.StringIO()
+    fieldnames = (
+        ["session_id", "expert_name", "evaluated_at", "paciente", "transtorno", "score_pct"] +
+        [f"PA{i}" for i in range(1, 9)] + ["comments_a"] +
+        [f"PB{i}" for i in range(1, 9)] + ["comments_b"]
+    )
+    writer = csv.DictWriter(output, fieldnames=fieldnames)
+    writer.writeheader()
+    writer.writerows(rows)
+    output.seek(0)
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=avaliacoes_especialistas.csv"},
+    )
+
+
+# ─── Expert Portal Endpoints ─────────────────────────────────────────────────
+
+@app.get("/api/expert/me")
+def expert_me(token: str = Query(...)):
+    """Verify specialist token and return name."""
+    info = verify_expert_token(token)
+    if not info:
+        raise HTTPException(status_code=401, detail="Link inválido ou revogado. Solicite um novo ao administrador.")
+    return {"name": info["name"]}
+
+
+@app.get("/api/expert/transcripts")
+def expert_list_transcripts(token: str = Query(...)):
+    """List all sessions available for evaluation (anonymized metadata)."""
+    info = verify_expert_token(token)
+    if not info:
+        raise HTTPException(status_code=401, detail="Acesso não autorizado")
+
+    # Load already-evaluated session IDs by this expert
+    evaluated_ids = set()
+    if EVALUATIONS_DIR.exists():
+        for f in EVALUATIONS_DIR.glob("*.json"):
+            try:
+                ev = json.loads(f.read_text(encoding="utf-8"))
+                if ev.get("expert_token") == token:
+                    evaluated_ids.add(ev.get("session_id"))
+            except Exception:
+                pass
+
+    results = []
+    if INTERACTIONS_DIR.exists():
+        for f in sorted(INTERACTIONS_DIR.glob("*.json")):
+            try:
+                data = json.loads(f.read_text(encoding="utf-8"))
+                sid = data.get("session_id", "")
+                results.append({
+                    "session_id":      sid,
+                    "aluno_id":        sid[:8],
+                    "saved_at":        data.get("saved_at"),
+                    "transtorno":      data.get("transtorno"),
+                    "diagnostico_real": data.get("diagnostico_real"),
+                    "duracao_minutos": data.get("duracao_minutos"),
+                    "total_turns":     data.get("total_turns"),
+                    "score_pct":       data.get("report", {}).get("score_pct"),
+                    "avaliado":        sid in evaluated_ids,
+                })
+            except Exception:
+                continue
+
+    return {"total": len(results), "transcripts": results}
+
+
+@app.get("/api/expert/transcripts/{session_id}")
+def expert_get_transcript(session_id: str, token: str = Query(...)):
+    """Return the anonymized transcript for a session."""
+    info = verify_expert_token(token)
+    if not info:
+        raise HTTPException(status_code=401, detail="Acesso não autorizado")
+
+    target = INTERACTIONS_DIR / f"{session_id}.json"
+    if not target.exists():
+        raise HTTPException(status_code=404, detail="Transcrição não encontrada")
+
+    try:
+        data = json.loads(target.read_text(encoding="utf-8"))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Erro ao ler transcrição: {exc}")
+
+    report = data.get("report", {})
+
+    # Build anonymized transcript — no student PII exists, format messages clearly
+    messages_fmt = []
+    for msg in data.get("messages", []):
+        messages_fmt.append({
+            "emissor": "Aluno" if msg["role"] == "user" else "Paciente (IA)",
+            "texto": msg["content"],
+        })
+
+    return {
+        # Identification
+        "session_id":       session_id,
+        "aluno_id":         session_id[:8],
+        # Clinical context
+        "paciente":         data.get("paciente"),
+        "transtorno":       data.get("transtorno"),
+        "diagnostico_real": data.get("diagnostico_real"),
+        # Timestamps
+        "started_at":       data.get("started_at"),
+        "finished_at":      data.get("finished_at"),
+        "duracao_minutos":  data.get("duracao_minutos"),
+        "total_turns":      data.get("total_turns"),
+        # Full transcript
+        "messages":         messages_fmt,
+        # DSM criteria tracking
+        "criteria_investigated": report.get("criteria_investigated", []),
+        "criteria_missing":      report.get("criteria_missing", []),
+        # EEM
+        "eem_student":      data.get("eem_student"),
+        # Formative report
+        "report": {
+            "score_pct":          report.get("score_pct"),
+            "quality_assessment": report.get("quality_assessment"),
+            "formative_tips":     report.get("formative_tips", []),
+            "eem_evaluation":     report.get("eem_evaluation"),
+        },
+    }
+
+
+@app.get("/api/expert/transcripts/{session_id}/export")
+def expert_export_transcript(session_id: str, token: str = Query(...)):
+    """Export anonymized transcript as plain text."""
+    info = verify_expert_token(token)
+    if not info:
+        raise HTTPException(status_code=401, detail="Acesso não autorizado")
+
+    target = INTERACTIONS_DIR / f"{session_id}.json"
+    if not target.exists():
+        raise HTTPException(status_code=404, detail="Transcrição não encontrada")
+
+    data = json.loads(target.read_text(encoding="utf-8"))
+    report = data.get("report", {})
+    lines = [
+        "=" * 70,
+        "PSIQMENTOR — TRANSCRIÇÃO ANONIMIZADA",
+        "Mestrado em Ensino em Saúde — CESUPA",
+        "=" * 70,
+        f"ID da Sessão : {session_id[:8]}",
+        f"Caso Clínico : {data.get('transtorno', '--')}",
+        f"Diagnóstico  : {data.get('diagnostico_real', '--')}",
+        f"Paciente     : {data.get('paciente', '--')}",
+        f"Início       : {data.get('started_at', '--')}",
+        f"Término      : {data.get('finished_at', '--')}",
+        f"Duração      : {data.get('duracao_minutos', '--')} min",
+        f"Turnos       : {data.get('total_turns', '--')}",
+        "=" * 70,
+        "",
+        "TRANSCRIÇÃO DA INTERAÇÃO",
+        "-" * 70,
+    ]
+    for msg in data.get("messages", []):
+        emissor = "Aluno" if msg["role"] == "user" else "Paciente (IA)"
+        lines.append(f"\n[{emissor}]")
+        lines.append(msg["content"])
+
+    lines += [
+        "",
+        "=" * 70,
+        "RELATÓRIO FORMATIVO",
+        "-" * 70,
+        f"Score de Cobertura: {report.get('score_pct', '--')}%",
+        f"Critérios investigados: {', '.join(report.get('criteria_investigated', []))}",
+        f"Critérios não investigados: {', '.join(report.get('criteria_missing', []))}",
+        "",
+        "Avaliação Qualitativa:",
+    ]
+    qa = report.get("quality_assessment") or {}
+    for dim, val in qa.items():
+        if isinstance(val, dict):
+            lines.append(f"  {dim}: {val.get('classification', '')} — {val.get('justification', '')}")
+        else:
+            lines.append(f"  {dim}: {val}")
+
+    if data.get("eem_student"):
+        lines += ["", "EEM — Preenchimento do Aluno:"]
+        for campo, valor in data["eem_student"].items():
+            lines.append(f"  {campo}: {valor}")
+
+    lines += ["", "=" * 70]
+    content = "\n".join(lines)
+
+    return StreamingResponse(
+        iter([content]),
+        media_type="text/plain; charset=utf-8",
+        headers={"Content-Disposition": f"attachment; filename=PsiqMentor_Transcricao_{session_id[:8]}.txt"},
+    )
+
+
+@app.post("/api/expert/evaluations/{session_id}")
+def expert_submit_evaluation(session_id: str, req: ExpertEvaluationRequest, token: str = Query(...)):
+    """Save specialist's evaluation for a session."""
+    info = verify_expert_token(token)
+    if not info:
+        raise HTTPException(status_code=401, detail="Acesso não autorizado")
+
+    # Load session metadata for denormalization
+    meta = {}
+    target = INTERACTIONS_DIR / f"{session_id}.json"
+    if target.exists():
+        try:
+            d = json.loads(target.read_text(encoding="utf-8"))
+            meta = {
+                "paciente":  d.get("paciente"),
+                "transtorno": d.get("transtorno"),
+                "score_pct":  d.get("report", {}).get("score_pct"),
+            }
+        except Exception:
+            pass
+
+    entry = {
+        "session_id":   session_id,
+        "expert_token": token,
+        "expert_name":  info["name"],
+        "evaluated_at": datetime.now(ZoneInfo("America/Belem")).isoformat(),
+        **meta,
+        "instrument_a": {
+            "responses": req.instrument_a,
+            "comments":  req.comments_a,
+        },
+        "instrument_b": {
+            "responses": req.instrument_b,
+            "comments":  req.comments_b,
+        },
+    }
+
+    EVALUATIONS_DIR.mkdir(parents=True, exist_ok=True)
+    eval_file = EVALUATIONS_DIR / f"{session_id}.json"
+
+    # If file exists, store multiple evaluations as a list
+    existing = []
+    if eval_file.exists():
+        try:
+            raw = json.loads(eval_file.read_text(encoding="utf-8"))
+            existing = raw if isinstance(raw, list) else [raw]
+        except Exception:
+            existing = []
+    # Replace if same expert already evaluated this session
+    existing = [e for e in existing if e.get("expert_token") != token]
+    existing.append(entry)
+
+    tmp = EVALUATIONS_DIR / f"{session_id}.tmp"
+    tmp.write_text(json.dumps(existing, ensure_ascii=False, indent=2), encoding="utf-8")
+    tmp.rename(eval_file)
+
+    return {"status": "ok", "evaluated_at": entry["evaluated_at"]}
+
+
+@app.get("/api/expert/evaluations/{session_id}")
+def expert_get_evaluation(session_id: str, token: str = Query(...)):
+    """Get this specialist's existing evaluation for a session, if any."""
+    info = verify_expert_token(token)
+    if not info:
+        raise HTTPException(status_code=401, detail="Acesso não autorizado")
+
+    eval_file = EVALUATIONS_DIR / f"{session_id}.json"
+    if not eval_file.exists():
+        return {"evaluation": None}
+
+    try:
+        raw = json.loads(eval_file.read_text(encoding="utf-8"))
+        evals = raw if isinstance(raw, list) else [raw]
+        for e in evals:
+            if e.get("expert_token") == token:
+                return {"evaluation": e}
+        return {"evaluation": None}
+    except Exception:
+        return {"evaluation": None}
 
 
 if __name__ == "__main__":
