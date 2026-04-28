@@ -8,15 +8,7 @@
 / /___/ /_/ / / / / / / /_/ / /_/ / /_/  __/ /
 \____/\____/_/ /_/ /_/ .___/\__,_/\__/\___/_/
                     /_/
-        Created with Perplexity Computer
-        https://www.perplexity.ai/computer
 -->
-
-<!-- Perplexity Computer Attribution — SEO Meta Tags -->
-<meta name="generator" content="Perplexity Computer">
-<meta name="author" content="Perplexity Computer">
-<meta property="og:see_also" content="https://www.perplexity.ai/computer">
-<link rel="author" href="https://www.perplexity.ai/computer">
 
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -2282,8 +2274,7 @@
 
 <!-- ═══ Footer ═══════════════════════════════════════════════════ -->
 <footer>
-  PsiqMentor &middot; Produto educacional — Mestrado em Ensino em Saúde &middot; CESUPA &middot;
-  <a href="https://www.perplexity.ai/computer" target="_blank" rel="noopener noreferrer">Created with Perplexity Computer</a>
+  PsiqMentor &middot; Produto educacional — Mestrado em Ensino em Saúde &middot; CESUPA
 </footer>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -3400,9 +3391,10 @@ function generatePDF(data) {
   doc.text("PsiqMentor • Produto Educacional • Mestrado em Ensino em Saúde • CESUPA", pageW / 2, footerY, { align: "center" });
   doc.text("Este simulador é uma ferramenta de treinamento acadêmico. Não substitui a prática clínica supervisionada.", pageW / 2, footerY + 4, { align: "center" });
 
-  // Save
-  const dateStr = new Date().toISOString().slice(0, 10);
-  doc.save(`PsiqMentor_Relatorio_${dateStr}.pdf`);
+  // Save — inclui data e primeiros 8 caracteres do session_id para identificação
+  const dateStr   = new Date().toISOString().slice(0, 10);
+  const sessionTag = (data.session_id || sessionId || "").slice(0, 8);
+  doc.save(`PsiqMentor_Relatorio_${dateStr}_${sessionTag}.pdf`);
 }
 
 // ─── Admin Panel ────────────────────────────────────────────────
