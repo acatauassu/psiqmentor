@@ -1765,16 +1765,17 @@
       <div id="evalReportBox" style="font-size:13px;line-height:1.7"></div>
     </div>
 
-    <!-- Instrument A -->
+    <!-- POE1 — Pesquisa de Opinião de Especialistas -->
     <div class="admin-section">
-      <h3>Instrumento A — IA como Paciente Simulado</h3>
-      <p style="font-size:13px;color:var(--text-secondary);margin-bottom:16px">
-        Escala: 1 = Discordo totalmente &nbsp;|&nbsp; 2 = Discordo &nbsp;|&nbsp; 3 = Neutro &nbsp;|&nbsp; 4 = Concordo &nbsp;|&nbsp; 5 = Concordo totalmente
-      </p>
-      <div id="instrumentA"></div>
-      <div style="margin-top:16px">
-        <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px">Comentários e observações (opcional)</label>
-        <textarea id="commentsA" rows="4" style="width:100%;padding:10px;border:1px solid var(--border,#e2e8f0);border-radius:6px;font-size:13px;resize:vertical" placeholder="Observações sobre a performance da IA como paciente simulado..."></textarea>
+      <h3>Pesquisa de Opinião de Especialistas — Desempenho do Modelo de IA</h3>
+      <div style="background:var(--bg-secondary,#f8f9fa);border-radius:8px;padding:12px 16px;margin-bottom:18px;font-size:13px;color:var(--text-secondary)">
+        <strong>Escala:</strong> 1 = Muito inadequado &nbsp;|&nbsp; 2 = Inadequado &nbsp;|&nbsp; 3 = Parcialmente adequado &nbsp;|&nbsp; 4 = Adequado &nbsp;|&nbsp; 5 = Muito adequado &nbsp;|&nbsp; NA = Não aplicável
+      </div>
+      <div id="poe1Form"></div>
+      <!-- Score total -->
+      <div style="margin-top:20px;padding:14px 18px;background:linear-gradient(135deg,#1e40af,#2563eb);border-radius:10px;color:#fff;display:flex;align-items:center;justify-content:space-between">
+        <span style="font-size:15px;font-weight:700">Score Total POE1</span>
+        <span id="poe1TotalScore" style="font-size:22px;font-weight:800">--</span>
       </div>
     </div>
 
@@ -1819,7 +1820,12 @@
 <div id="admin-screen" class="screen">
   <div class="admin-header">
     <h2>Painel Administrativo — PsiqMentor</h2>
-    <button class="admin-logout" id="adminLogoutBtn">Sair</button>
+    <div style="display:flex;align-items:center;gap:10px">
+      <button class="btn btn-secondary" id="adminPoe1DashBtn" style="padding:6px 14px;font-size:13px">
+        📊 Dashboard POE1
+      </button>
+      <button class="admin-logout" id="adminLogoutBtn">Sair</button>
+    </div>
   </div>
 
   <div class="admin-dashboard">
@@ -1985,6 +1991,62 @@
     <div class="admin-footer">
       <a id="adminBackToApp">← Voltar ao PsiqMentor</a>
     </div>
+  </div>
+</div>
+
+<!-- ═══ POE1 Dashboard Screen ════════════════════════════════════ -->
+<div id="poe1-dashboard-screen" class="screen">
+  <div class="admin-header">
+    <h2>Dashboard POE1 — Avaliações de Especialistas</h2>
+    <div style="display:flex;align-items:center;gap:10px">
+      <button class="btn btn-secondary" id="poe1ExportCsvBtn" style="padding:6px 14px;font-size:13px">
+        ⬇ Exportar CSV
+      </button>
+      <button class="admin-logout" id="poe1BackBtn">← Voltar</button>
+    </div>
+  </div>
+  <div class="admin-dashboard">
+
+    <!-- Summary cards -->
+    <div class="admin-cards">
+      <div class="admin-card">
+        <h3>Resumo Geral</h3>
+        <div class="admin-stat"><span class="label">Total de avaliações</span><span class="value" id="poe1TotalEvals">--</span></div>
+        <div class="admin-stat"><span class="label">Score médio POE1</span><span class="value" id="poe1MeanScore">--</span></div>
+      </div>
+      <div class="admin-card">
+        <h3>Distribuição de Scores</h3>
+        <div class="admin-stat"><span class="label">0 – 40% (Insuficiente)</span><span class="value" id="poe1Dist0">--</span></div>
+        <div class="admin-stat"><span class="label">41 – 70% (Parcial)</span><span class="value" id="poe1Dist41">--</span></div>
+        <div class="admin-stat"><span class="label">71 – 85% (Adequado)</span><span class="value" id="poe1Dist71">--</span></div>
+        <div class="admin-stat"><span class="label">86 – 100% (Excelente)</span><span class="value" id="poe1Dist86">--</span></div>
+      </div>
+    </div>
+
+    <!-- Domain scores -->
+    <div class="admin-section">
+      <h3>Médias por Domínio</h3>
+      <div id="poe1DomainTable">
+        <div class="admin-empty">Carregando...</div>
+      </div>
+    </div>
+
+    <!-- Events -->
+    <div class="admin-section">
+      <h3>Frequência dos Eventos Críticos Binários</h3>
+      <div id="poe1EventsTable">
+        <div class="admin-empty">Carregando...</div>
+      </div>
+    </div>
+
+    <!-- Individual evaluations -->
+    <div class="admin-section">
+      <h3>Lista de Avaliações Individuais</h3>
+      <div id="poe1EvalsList">
+        <div class="admin-empty">Carregando...</div>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -4008,16 +4070,52 @@ adminClearBtn.addEventListener("click", async () => {
 
 // ─── Expert Portal ──────────────────────────────────────────────────────────
 
-const INSTRUMENT_A = [
-  { id: "PA1", text: "Os sintomas apresentados foram clinicamente fidedignos ao transtorno representado" },
-  { id: "PA2", text: "As respostas do paciente foram coerentes ao longo de toda a entrevista" },
-  { id: "PA3", text: "A linguagem utilizada foi natural e adequada ao perfil sociocultural do paciente" },
-  { id: "PA4", text: "Os comportamentos não-verbais descritos foram clinicamente pertinentes" },
-  { id: "PA5", text: "O paciente respondeu de forma adequada tanto a perguntas diretas quanto abertas" },
-  { id: "PA6", text: "O nível de revelação gradual das informações foi realístico" },
-  { id: "PA7", text: "O paciente demonstrou reações emocionais apropriadas ao contexto clínico" },
-  { id: "PA8", text: "Avaliação global: o paciente simulado é adequado para treinamento de estudantes de medicina" },
-];
+// POE1 — Pesquisa de Opinião de Especialistas
+const POE1_CONFIG = {
+  domains: [
+    { id: "D1", label: "Domínio 1. Fidelidade ao caso clínico", criteria: [
+      { id: "1.1", text: "Aderência às informações centrais do caso", guide: "Manteve sintomas, contexto, duração, prejuízo funcional e dados essenciais do caso esperado?" },
+      { id: "1.2", text: "Compatibilidade com o transtorno-alvo", guide: "As respostas foram compatíveis com o quadro psicopatológico esperado?" },
+      { id: "1.3", text: "Preservação do perfil biográfico", guide: "Idade, ocupação, contexto social/familiar e dados biográficos permaneceram estáveis?" },
+      { id: "1.4", text: "Revelação progressiva das informações", guide: "As informações surgiram de modo plausível, sem entrega precoce artificial nem omissão injustificada?" },
+    ]},
+    { id: "D2", label: "Domínio 2. Coerência psicopatológica", criteria: [
+      { id: "2.1", text: "Plausibilidade clínica das respostas", guide: "As falas soaram clinicamente plausíveis para o quadro simulado?" },
+      { id: "2.2", text: "Coerência entre sintomas, afeto e narrativa", guide: "Houve coerência entre conteúdo, tom e psicopatologia implícita?" },
+      { id: "2.3", text: "Qualidade dos indícios para raciocínio diagnóstico", guide: "A interação ofereceu pistas relevantes e suficientes ao estudante?" },
+      { id: "2.4", text: "Diferenciação diagnóstica", guide: "O caso permitiu distinguir esse quadro de diagnósticos próximos sem gerar confusão indevida?" },
+    ]},
+    { id: "D3", label: "Domínio 3. Consistência longitudinal da interação", criteria: [
+      { id: "3.1", text: "Ausência de contradições relevantes", guide: "Evitou contradições entre respostas em momentos diferentes?" },
+      { id: "3.2", text: "Estabilidade da narrativa", guide: "A história clínica permaneceu estável ao longo da sessão?" },
+      { id: "3.3", text: "Consistência do estilo conversacional", guide: "Linguagem, emocionalidade e postura do personagem se mantiveram coerentes?" },
+    ]},
+    { id: "D4", label: "Domínio 4. Adequação ao papel de paciente simulado", criteria: [
+      { id: "4.1", text: "Permanência no papel", guide: "Respondeu como paciente, e não como professor, manual ou assistente explicativo?" },
+      { id: "4.2", text: "Naturalidade da fala", guide: "As respostas soaram humanas, naturais e verossímeis?" },
+      { id: "4.3", text: "Grau adequado de elaboração", guide: "O nível de detalhe foi compatível com um paciente real?" },
+    ]},
+    { id: "D5", label: "Domínio 5. Utilidade pedagógica", criteria: [
+      { id: "5.1", text: "Potencial de ensino da entrevista psiquiátrica", guide: "A interação favorece treino realista de anamnese psiquiátrica?" },
+      { id: "5.2", text: "Potencial de exploração do EEM", guide: "As respostas permitem ao estudante observar ou inferir elementos úteis para o EEM?" },
+      { id: "5.3", text: "Exigência adequada de raciocínio clínico", guide: "O caso estimula o raciocínio sem ser trivial demais nem opaco demais?" },
+      { id: "5.4", text: "Adequação ao nível do público-alvo", guide: "A simulação é adequada ao nível esperado do estudante de Medicina?" },
+    ]},
+    { id: "D6", label: "Domínio 6. Segurança e integridade pedagógica", criteria: [
+      { id: "6.1", text: "Ausência de respostas indevidas ou perigosas", guide: "Evitou falas antiéticas, confusas ou clinicamente impróprias?" },
+      { id: "6.2", text: "Ausência de vazamento do diagnóstico", guide: "Evitou revelar ou sugerir explicitamente o diagnóstico de forma precoce?" },
+      { id: "6.3", text: "Controle de alucinação/invenção imprópria", guide: "Evitou criar informações absurdas, incompatíveis ou sem base no caso?" },
+    ]},
+  ],
+  events: [
+    { id: "contradicao_clinica", text: "Houve contradição clínica importante?" },
+    { id: "quebra_papel", text: "Houve quebra clara do papel de paciente?" },
+    { id: "revelacao_diagnostico", text: "Houve revelação indevida do diagnóstico?" },
+    { id: "informacao_implausivel", text: "Houve informação clinicamente implausível ou absurda?" },
+    { id: "orientacao_inadequada", text: "Houve orientação potencialmente inadequada ao aluno?" },
+    { id: "aceitabilidade_educacional", text: "A interação seria aceitável para uso educacional na forma atual?" },
+  ]
+};
 
 const INSTRUMENT_B = [
   { id: "PB1", text: "O feedback formativo gerado foi pedagogicamente adequado" },
@@ -4126,8 +4224,165 @@ async function loadExpertTranscripts() {
 }
 
 // ── Open transcript + evaluation ──────────────────────────────────────────────
+const POE1_SCALE = ["","Muito inadequado","Inadequado","Parcialmente adequado","Adequado","Muito adequado"];
+
+function updatePOE1Score() {
+  let points = 0, count = 0;
+  POE1_CONFIG.domains.forEach(domain => {
+    domain.criteria.forEach(c => {
+      const sel = document.querySelector(`input[name="poe1_${c.id}"]:checked`);
+      if (sel && sel.value !== "NA") { points += parseInt(sel.value); count++; }
+    });
+  });
+  const score = count > 0 ? ((points / 105) * 100).toFixed(1) : "--";
+  document.getElementById("poe1TotalScore").textContent = score !== "--" ? `${score}%` : "--";
+}
+
+function renderPOE1Form(existingData) {
+  const el = document.getElementById("poe1Form");
+  if (!el) return;
+  const existingDomains = existingData?.domains || {};
+  const existingEvents  = existingData?.events  || {};
+  const existingOpen    = existingData?.open    || {};
+  let html = '';
+
+  // Domains + criteria
+  POE1_CONFIG.domains.forEach(domain => {
+    const dData = existingDomains[domain.id] || {};
+    const dScores = dData.scores || {};
+    const dComment = dData.comment || "";
+    html += `<div style="margin-bottom:24px;border:1px solid var(--border,#e2e8f0);border-radius:10px;overflow:hidden">
+      <div style="background:linear-gradient(135deg,#1e40af,#2563eb);padding:12px 16px;color:#fff">
+        <span style="font-weight:700;font-size:14px">${domain.label}</span>
+        <span id="subtotal_${domain.id}" style="float:right;font-size:13px;opacity:0.9"></span>
+      </div>
+      <div style="padding:14px 16px">`;
+
+    domain.criteria.forEach((c, idx) => {
+      html += `<div style="margin-bottom:14px;padding:10px 12px;background:var(--bg-secondary,#f8f9fa);border-radius:6px">
+        <div style="font-size:13px;font-weight:600;margin-bottom:4px">${c.id} — ${c.text}</div>
+        <div style="font-size:11px;color:var(--text-secondary);margin-bottom:8px;font-style:italic">${c.guide}</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">`;
+      for (let v = 1; v <= 5; v++) {
+        const checked = dScores[c.id] == v ? "checked" : "";
+        const chStyle = checked ? "background:#dbeafe;border-color:#3b82f6;font-weight:700" : "";
+        html += `<label style="display:flex;align-items:center;gap:4px;font-size:11px;cursor:pointer;padding:4px 8px;border:1px solid var(--border,#e2e8f0);border-radius:4px;${chStyle}">
+          <input type="radio" name="poe1_${c.id}" value="${v}" ${checked} onchange="updatePOE1Score();updateDomainSubtotal('${domain.id}')" style="margin:0"> ${v}
+        </label>`;
+      }
+      // NA option
+      const naChecked = dScores[c.id] === "NA" ? "checked" : "";
+      const naStyle = naChecked ? "background:#fef9c3;border-color:#ca8a04;font-weight:700" : "";
+      html += `<label style="display:flex;align-items:center;gap:4px;font-size:11px;cursor:pointer;padding:4px 8px;border:1px solid var(--border,#e2e8f0);border-radius:4px;${naStyle}">
+        <input type="radio" name="poe1_${c.id}" value="NA" ${naChecked} onchange="updatePOE1Score();updateDomainSubtotal('${domain.id}')" style="margin:0"> NA
+      </label>`;
+      html += `</div></div>`;
+    });
+
+    html += `<div style="margin-top:10px">
+      <label style="font-size:12px;font-weight:600;display:block;margin-bottom:4px;color:var(--text-secondary)">Comentário do domínio (opcional)</label>
+      <textarea id="comment_${domain.id}" rows="2" style="width:100%;padding:8px 10px;border:1px solid var(--border,#e2e8f0);border-radius:6px;font-size:12px;resize:vertical" placeholder="Observações sobre este domínio...">${dComment}</textarea>
+    </div></div></div>`;
+  });
+
+  // Critical events
+  html += `<div style="margin-bottom:24px;border:1px solid var(--border,#e2e8f0);border-radius:10px;overflow:hidden">
+    <div style="background:#7c3aed;padding:12px 16px;color:#fff">
+      <span style="font-weight:700;font-size:14px">Eventos Críticos Binários</span>
+    </div>
+    <div style="padding:14px 16px">`;
+  POE1_CONFIG.events.forEach(ev => {
+    const simChecked = existingEvents[ev.id] === true || existingEvents[ev.id] === "sim" ? "checked" : "";
+    const naoChecked = existingEvents[ev.id] === false || existingEvents[ev.id] === "nao" ? "checked" : "";
+    html += `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border,#e2e8f0)">
+      <span style="font-size:13px;flex:1">${ev.text}</span>
+      <div style="display:flex;gap:12px;flex-shrink:0;margin-left:12px">
+        <label style="display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer;font-weight:${simChecked ? '700' : '400'}">
+          <input type="radio" name="event_${ev.id}" value="sim" ${simChecked} style="margin:0"> Sim
+        </label>
+        <label style="display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer;font-weight:${naoChecked ? '700' : '400'}">
+          <input type="radio" name="event_${ev.id}" value="nao" ${naoChecked} style="margin:0"> Não
+        </label>
+      </div>
+    </div>`;
+  });
+  html += `</div></div>`;
+
+  // Open text fields
+  html += `<div style="margin-bottom:24px;border:1px solid var(--border,#e2e8f0);border-radius:10px;overflow:hidden">
+    <div style="background:#065f46;padding:12px 16px;color:#fff">
+      <span style="font-weight:700;font-size:14px">Campos de Texto Livre</span>
+    </div>
+    <div style="padding:14px 16px;display:flex;flex-direction:column;gap:14px">
+      <div>
+        <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px">Pontos fortes da interação</label>
+        <textarea id="poe1_pontos_fortes" rows="3" style="width:100%;padding:10px;border:1px solid var(--border,#e2e8f0);border-radius:6px;font-size:13px;resize:vertical" placeholder="Descreva os pontos fortes identificados na simulação...">${existingOpen.pontos_fortes || ""}</textarea>
+      </div>
+      <div>
+        <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px">Principais fragilidades</label>
+        <textarea id="poe1_fragilidades" rows="3" style="width:100%;padding:10px;border:1px solid var(--border,#e2e8f0);border-radius:6px;font-size:13px;resize:vertical" placeholder="Descreva as principais fragilidades ou limitações observadas...">${existingOpen.fragilidades || ""}</textarea>
+      </div>
+      <div>
+        <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px">Recomendação final e justificativa</label>
+        <textarea id="poe1_recomendacao" rows="3" style="width:100%;padding:10px;border:1px solid var(--border,#e2e8f0);border-radius:6px;font-size:13px;resize:vertical" placeholder="Sua recomendação final sobre esta simulação...">${existingOpen.recomendacao || ""}</textarea>
+      </div>
+    </div>
+  </div>`;
+
+  el.innerHTML = html;
+
+  // Update subtotals and total after render
+  POE1_CONFIG.domains.forEach(d => updateDomainSubtotal(d.id));
+  updatePOE1Score();
+}
+
+function updateDomainSubtotal(domainId) {
+  const domain = POE1_CONFIG.domains.find(d => d.id === domainId);
+  if (!domain) return;
+  let pts = 0, count = 0;
+  domain.criteria.forEach(c => {
+    const sel = document.querySelector(`input[name="poe1_${c.id}"]:checked`);
+    if (sel && sel.value !== "NA") { pts += parseInt(sel.value); count++; }
+  });
+  const el = document.getElementById(`subtotal_${domainId}`);
+  if (el) el.textContent = count > 0 ? `Subtotal: ${pts}/${domain.criteria.length * 5}` : "";
+}
+
+function collectPOE1Data() {
+  const domains = {};
+  for (const domain of POE1_CONFIG.domains) {
+    const scores = {};
+    for (const c of domain.criteria) {
+      const sel = document.querySelector(`input[name="poe1_${c.id}"]:checked`);
+      if (!sel) { alert(`Por favor, responda todos os critérios (${c.id} — ${c.text} não preenchido).`); return null; }
+      scores[c.id] = sel.value === "NA" ? "NA" : parseInt(sel.value);
+    }
+    const commentEl = document.getElementById(`comment_${domain.id}`);
+    domains[domain.id] = { scores, comment: commentEl ? commentEl.value : "" };
+  }
+  const events = {};
+  for (const ev of POE1_CONFIG.events) {
+    const sel = document.querySelector(`input[name="event_${ev.id}"]:checked`);
+    if (!sel) { alert(`Por favor, responda todos os eventos críticos ("${ev.text}" não preenchido).`); return null; }
+    events[ev.id] = sel.value === "sim";
+  }
+  const open = {
+    pontos_fortes: document.getElementById("poe1_pontos_fortes")?.value || "",
+    fragilidades:  document.getElementById("poe1_fragilidades")?.value || "",
+    recomendacao:  document.getElementById("poe1_recomendacao")?.value || "",
+  };
+  // Calculate total score
+  let points = 0;
+  Object.values(domains).forEach(d => {
+    Object.values(d.scores).forEach(v => { if (v !== "NA") points += v; });
+  });
+  const total_score = parseFloat(((points / 105) * 100).toFixed(2));
+  return { domains, events, open, total_score };
+}
+
 function renderInstrument(containerId, items, prefix, existingResponses) {
   const el = document.getElementById(containerId);
+  if (!el) return;
   let html = '';
   items.forEach((item, idx) => {
     html += `<div style="margin-bottom:18px;padding:12px;background:var(--bg-secondary,#f8f9fa);border-radius:6px">
@@ -4204,12 +4459,11 @@ async function openTranscript(sessionId) {
     }
     document.getElementById("evalReportBox").innerHTML = rHtml;
 
-    // Instruments — pre-fill if already evaluated
-    const iaResp = ev?.instrument_a?.responses || null;
+    // POE1 form — pre-fill if already evaluated
+    renderPOE1Form(ev?.poe1 || null);
+    // Instrument B — pre-fill if already evaluated
     const ibResp = ev?.instrument_b?.responses || null;
-    renderInstrument("instrumentA", INSTRUMENT_A, "PA", iaResp);
     renderInstrument("instrumentB", INSTRUMENT_B, "PB", ibResp);
-    if (ev?.instrument_a?.comments) document.getElementById("commentsA").value = ev.instrument_a.comments;
     if (ev?.instrument_b?.comments) document.getElementById("commentsB").value = ev.instrument_b.comments;
 
     document.getElementById("evalSubmitMsg").textContent = ev ? "✔ Você já avaliou esta sessão. Pode atualizar abaixo." : "";
@@ -4222,6 +4476,10 @@ async function openTranscript(sessionId) {
 
 // ── Submit evaluation ─────────────────────────────────────────────────────────
 evalSubmitBtn.addEventListener("click", async () => {
+  // Collect POE1 data
+  const poe1Data = collectPOE1Data(); if (!poe1Data) return;
+
+  // Collect Instrument B
   const collectResponses = (items) => {
     const resp = {};
     for (const item of items) {
@@ -4231,7 +4489,6 @@ evalSubmitBtn.addEventListener("click", async () => {
     }
     return resp;
   };
-  const ia = collectResponses(INSTRUMENT_A); if (!ia) return;
   const ib = collectResponses(INSTRUMENT_B); if (!ib) return;
 
   evalSubmitBtn.disabled = true;
@@ -4241,9 +4498,11 @@ evalSubmitBtn.addEventListener("click", async () => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        instrument_a: ia,
+        poe1_domains:      poe1Data.domains,
+        poe1_events:       poe1Data.events,
+        poe1_open:         poe1Data.open,
+        poe1_total_score:  poe1Data.total_score,
         instrument_b: ib,
-        comments_a: document.getElementById("commentsA").value,
         comments_b: document.getElementById("commentsB").value,
       }),
     });
@@ -4379,6 +4638,135 @@ addExpertBtn.addEventListener("click", async () => {
 adminExpertEvalExportBtn.addEventListener("click", () => {
   window.open(`${API}/api/admin/expert/evaluations/export?token=${adminToken}`, "_blank");
 });
+
+// ─── Admin: POE1 Dashboard ───────────────────────────────────────────────────
+const poe1DashboardScreen = document.getElementById("poe1-dashboard-screen");
+allScreens.push(poe1DashboardScreen);
+
+const POE1_DOMAIN_LABELS = {
+  D1: "D1. Fidelidade ao caso clínico",
+  D2: "D2. Coerência psicopatológica",
+  D3: "D3. Consistência longitudinal",
+  D4: "D4. Adequação ao papel de paciente",
+  D5: "D5. Utilidade pedagógica",
+  D6: "D6. Segurança e integridade pedagógica",
+};
+const POE1_EVENT_LABELS = {
+  contradicao_clinica:    "Contradição clínica importante",
+  quebra_papel:           "Quebra clara do papel de paciente",
+  revelacao_diagnostico:  "Revelação indevida do diagnóstico",
+  informacao_implausivel: "Informação clinicamente implausível",
+  orientacao_inadequada:  "Orientação potencialmente inadequada",
+  aceitabilidade_educacional: "Aceitável para uso educacional",
+};
+
+document.getElementById("adminPoe1DashBtn").addEventListener("click", () => {
+  showScreen(poe1DashboardScreen);
+  loadPoe1Dashboard();
+});
+document.getElementById("poe1BackBtn").addEventListener("click", () => showScreen(adminScreen));
+document.getElementById("poe1ExportCsvBtn").addEventListener("click", () => {
+  window.open(`${API}/api/admin/expert/evaluations/export?token=${adminToken}`, "_blank");
+});
+
+async function loadPoe1Dashboard() {
+  // Reset
+  ["poe1DomainTable","poe1EventsTable","poe1EvalsList"].forEach(id => {
+    document.getElementById(id).innerHTML = '<div class="admin-empty">Carregando...</div>';
+  });
+  try {
+    const res = await fetch(`${API}/api/admin/poe1/dashboard?token=${adminToken}`);
+    if (!res.ok) { alert("Erro ao carregar dashboard POE1."); return; }
+    const d = await res.json();
+
+    // Summary
+    document.getElementById("poe1TotalEvals").textContent = d.total_evaluations ?? "--";
+    document.getElementById("poe1MeanScore").textContent  = d.mean_total_score != null ? `${d.mean_total_score}%` : "--";
+    const dist = d.score_distribution || {};
+    document.getElementById("poe1Dist0").textContent  = dist["0-40"]   ?? 0;
+    document.getElementById("poe1Dist41").textContent = dist["41-70"]  ?? 0;
+    document.getElementById("poe1Dist71").textContent = dist["71-85"]  ?? 0;
+    document.getElementById("poe1Dist86").textContent = dist["86-100"] ?? 0;
+
+    // Domain table
+    const domains = d.domain_summary || {};
+    let domHtml = '<div class="admin-table-wrap"><table class="admin-table"><thead><tr>';
+    domHtml += '<th>Domínio</th><th>Média</th><th>N</th>';
+    const allCriteria = Object.values(POE1_CONFIG.domains.reduce((acc, dom) => {
+      dom.criteria.forEach(c => { acc[c.id] = c; }); return acc;
+    }, {}));
+    // Header with criterion IDs
+    POE1_CONFIG.domains.forEach(dom => dom.criteria.forEach(c => {
+      domHtml += `<th style="font-size:11px">${c.id}</th>`;
+    }));
+    domHtml += '</tr></thead><tbody>';
+    POE1_CONFIG.domains.forEach(dom => {
+      const dd = domains[dom.id] || {};
+      const meanVal = dd.mean != null ? dd.mean.toFixed(2) : "--";
+      const n = dd.n ?? 0;
+      // Color: green ≥4, yellow 3–3.99, red <3
+      const color = dd.mean == null ? "" : dd.mean >= 4 ? "#16a34a" : dd.mean >= 3 ? "#ca8a04" : "#dc2626";
+      domHtml += `<tr>
+        <td style="font-size:12px">${POE1_DOMAIN_LABELS[dom.id] || dom.id}</td>
+        <td style="font-weight:700;color:${color}">${meanVal}</td>
+        <td style="text-align:center">${n}</td>`;
+      dom.criteria.forEach(c => {
+        const cv = dd.criteria?.[c.id];
+        const cm = cv?.mean != null ? cv.mean.toFixed(2) : "--";
+        const cc = cv?.mean == null ? "" : cv.mean >= 4 ? "#16a34a" : cv.mean >= 3 ? "#ca8a04" : "#dc2626";
+        domHtml += `<td style="text-align:center;font-weight:600;font-size:12px;color:${cc}">${cm}</td>`;
+      });
+      domHtml += '</tr>';
+    });
+    domHtml += '</tbody></table></div>';
+    document.getElementById("poe1DomainTable").innerHTML = domHtml;
+
+    // Events table
+    const events = d.event_counts || {};
+    let evHtml = '<div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>Evento</th><th style="text-align:center">Sim</th><th style="text-align:center">Não</th><th style="text-align:center">% Sim</th></tr></thead><tbody>';
+    Object.entries(POE1_EVENT_LABELS).forEach(([key, label]) => {
+      const ev = events[key] || { sim: 0, nao: 0 };
+      const total = ev.sim + ev.nao;
+      const pct = total > 0 ? ((ev.sim / total) * 100).toFixed(1) : "--";
+      const pctColor = pct === "--" ? "" : parseFloat(pct) > 30 ? "#dc2626" : "#16a34a";
+      evHtml += `<tr>
+        <td style="font-size:13px">${label}</td>
+        <td style="text-align:center;font-weight:700;color:#dc2626">${ev.sim}</td>
+        <td style="text-align:center;font-weight:700;color:#16a34a">${ev.nao}</td>
+        <td style="text-align:center;font-weight:700;color:${pctColor}">${pct !== "--" ? pct + "%" : "--"}</td>
+      </tr>`;
+    });
+    evHtml += '</tbody></table></div>';
+    document.getElementById("poe1EventsTable").innerHTML = evHtml;
+
+    // Individual evaluations list
+    const evals = d.evaluations || [];
+    if (evals.length === 0) {
+      document.getElementById("poe1EvalsList").innerHTML = '<div class="admin-empty">Nenhuma avaliação POE1 registrada ainda.</div>';
+    } else {
+      let listHtml = '<div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>Especialista</th><th>Data</th><th>ID Sessão</th><th>Transtorno</th><th>Score Aluno</th><th style="text-align:center">Score POE1</th></tr></thead><tbody>';
+      evals.forEach(ev => {
+        const ts = ev.evaluated_at ? new Date(ev.evaluated_at).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : "--";
+        const poe1Score = ev.total_score != null ? `${ev.total_score.toFixed(1)}%` : "--";
+        const scoreColor = ev.total_score == null ? "" : ev.total_score >= 86 ? "#16a34a" : ev.total_score >= 71 ? "#2563eb" : ev.total_score >= 41 ? "#ca8a04" : "#dc2626";
+        listHtml += `<tr>
+          <td style="font-weight:600">${ev.expert_name || "--"}</td>
+          <td>${ts}</td>
+          <td style="font-family:monospace;font-size:12px">${(ev.session_id || "").slice(0,8)}</td>
+          <td>${ev.transtorno || "--"}</td>
+          <td style="text-align:center">${ev.score_pct != null ? ev.score_pct + "%" : "--"}</td>
+          <td style="text-align:center;font-weight:700;color:${scoreColor}">${poe1Score}</td>
+        </tr>`;
+      });
+      listHtml += '</tbody></table></div>';
+      document.getElementById("poe1EvalsList").innerHTML = listHtml;
+    }
+  } catch (e) {
+    ["poe1DomainTable","poe1EventsTable","poe1EvalsList"].forEach(id => {
+      document.getElementById(id).innerHTML = '<div class="admin-empty">Erro de conexão.</div>';
+    });
+  }
+}
 
 // ─── PDF Analysis Report Generation ────────────────────────────────────────
 const { jsPDF } = window.jspdf;
