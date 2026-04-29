@@ -1696,7 +1696,7 @@
 </div>
 
 <!-- ═══ Expert Screen ═══════════════════════════════════════════════ -->
-<div id="expert-screen" class="screen" style="display:none">
+<div id="expert-screen" class="screen">
   <div class="admin-header">
     <h2>Portal do Especialista — PsiqMentor</h2>
     <button class="admin-logout" id="expertLogoutBtn">Sair</button>
@@ -1721,7 +1721,7 @@
 </div>
 
 <!-- ═══ Expert Transcript + Evaluation Screen ═══════════════════════ -->
-<div id="expert-transcript-screen" class="screen" style="display:none">
+<div id="expert-transcript-screen" class="screen">
   <div class="admin-header">
     <h2>Avaliação da Sessão — <span id="evalSessionId" style="font-family:monospace;font-size:16px"></span></h2>
     <button class="admin-logout" id="evalBackBtn">← Voltar</button>
@@ -2588,7 +2588,7 @@ const reportBackBtn   = document.getElementById("reportBackBtn");
 
 // ─── Screen Navigation ──────────────────────────────────────────
 let surveyDone = false;
-const allScreens = [welcomeScreen, chatScreen, eemScreen, postScreen, thankYouScreen, surveyScreen, reportScreen, adminLoginScreen, adminScreen];
+const allScreens = [welcomeScreen, chatScreen, eemScreen, postScreen, thankYouScreen, surveyScreen, reportScreen, adminLoginScreen, adminScreen, expertScreen, expertTranscriptScreen];
 
 function showScreen(screen) {
   allScreens.forEach(s => s.classList.remove("active"));
