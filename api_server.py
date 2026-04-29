@@ -754,14 +754,16 @@ class ExpertCreateRequest(BaseModel):
 
 
 class ExpertEvaluationRequest(BaseModel):
-    # POE1 — Pesquisa de Opinião de Especialistas (substitui instrument_a)
+    # POE1 — Desempenho como Paciente Simulado (substitui instrument_a)
     poe1_domains: dict = {}      # {"D1": {"scores": {"1.1": 4, ...}, "comment": ""}, ...}
     poe1_events: dict = {}       # {"contradicao_clinica": true, ...}
     poe1_open: dict = {}         # {"pontos_fortes": "...", "fragilidades": "...", "recomendacao": "..."}
     poe1_total_score: float = 0.0  # (pontuação / 105) * 100
-    # Instrumento B — mantido
-    instrument_b: dict = {}      # {"PB1": int, ..., "PB8": int}
-    comments_b: str = ""
+    # POE2 — Desempenho como Ferramenta de Autoaprendizado Criterial (substitui instrument_b)
+    poe2_domains: dict = {}      # {"D1": {"scores": {"1.1": 4, ...}, "comment": ""}, ...}
+    poe2_events: dict = {}       # {"confusao_diagnostica": true, ...}
+    poe2_open: dict = {}         # {"pontos_fortes": "...", "limitacoes": "...", "riscos_confusao": "...", "recomendacoes": "...", "conclusao": "...", "justificativa": "..."}
+    poe2_total_score: float = 0.0  # (pontuação / 140) * 100
 
 
 # ─── Endpoints ──────────────────────────────────────────────────────────────
@@ -1754,6 +1756,19 @@ def admin_export_evaluations(token: str = Query(...)):
         "contradicao_clinica","quebra_papel","revelacao_diagnostico",
         "informacao_implausivel","orientacao_inadequada","aceitabilidade_educacional",
     ]
+    # POE2 criteria list (28 items across 6 domains: 5+5+5+5+5+3)
+    POE2_CRITERIA = [
+        "1.1","1.2","1.3","1.4","1.5",
+        "2.1","2.2","2.3","2.4","2.5",
+        "3.1","3.2","3.3","3.4","3.5",
+        "4.1","4.2","4.3","4.4","4.5",
+        "5.1","5.2","5.3","5.4","5.5",
+        "6.1","6.2","6.3",
+    ]
+    POE2_EVENTS = [
+        "confusao_diagnostica","induz_erro_conceitual","mistura_quadros",
+        "pistas_insuficientes","favorece_autoaprendizado","recomendavel_educacional",
+    ]
 
     rows = []
     if EVALUATIONS_DIR.exists():
@@ -1763,48 +1778,69 @@ def admin_export_evaluations(token: str = Query(...)):
                 evlist = data if isinstance(data, list) else [data]
                 for ev in evlist:
                     poe1 = ev.get("poe1", {})
-                    domains = poe1.get("domains", {})
-                    events  = poe1.get("events", {})
-                    open_t  = poe1.get("open", {})
-                    ib = ev.get("instrument_b", {}).get("responses", {})
+                    poe2 = ev.get("poe2", {})
+                    p1_domains = poe1.get("domains", {})
+                    p1_events  = poe1.get("events", {})
+                    p1_open    = poe1.get("open", {})
+                    p2_domains = poe2.get("domains", {})
+                    p2_events  = poe2.get("events", {})
+                    p2_open    = poe2.get("open", {})
                     row = {
-                        "session_id":       ev.get("session_id", ""),
-                        "expert_name":      ev.get("expert_name", ""),
-                        "evaluated_at":     ev.get("evaluated_at", ""),
-                        "paciente":         ev.get("paciente", ""),
-                        "transtorno":       ev.get("transtorno", ""),
-                        "score_pct":        ev.get("score_pct", ""),
-                        "poe1_total_score": poe1.get("total_score", ""),
-                        "pontos_fortes":    open_t.get("pontos_fortes", ""),
-                        "fragilidades":     open_t.get("fragilidades", ""),
-                        "recomendacao":     open_t.get("recomendacao", ""),
-                        "comments_b":       ev.get("instrument_b", {}).get("comments", ""),
+                        "session_id":        ev.get("session_id", ""),
+                        "expert_name":       ev.get("expert_name", ""),
+                        "evaluated_at":      ev.get("evaluated_at", ""),
+                        "paciente":          ev.get("paciente", ""),
+                        "transtorno":        ev.get("transtorno", ""),
+                        "score_pct":         ev.get("score_pct", ""),
+                        "poe1_total_score":  poe1.get("total_score", ""),
+                        "poe2_total_score":  poe2.get("total_score", ""),
+                        # POE1 open text
+                        "p1_pontos_fortes":  p1_open.get("pontos_fortes", ""),
+                        "p1_fragilidades":   p1_open.get("fragilidades", ""),
+                        "p1_recomendacao":   p1_open.get("recomendacao", ""),
+                        # POE2 open text
+                        "p2_pontos_fortes":  p2_open.get("pontos_fortes", ""),
+                        "p2_limitacoes":     p2_open.get("limitacoes", ""),
+                        "p2_riscos_confusao":p2_open.get("riscos_confusao", ""),
+                        "p2_recomendacoes":  p2_open.get("recomendacoes", ""),
+                        "p2_conclusao":      p2_open.get("conclusao", ""),
+                        "p2_justificativa":  p2_open.get("justificativa", ""),
                     }
-                    # Per-criterion scores
+                    # POE1 per-criterion scores + domain comments
                     for crit in POE1_CRITERIA:
-                        domain_key = "D" + crit.split(".")[0]
-                        row[f"poe1_{crit.replace('.','_')}"] = domains.get(domain_key, {}).get("scores", {}).get(crit, "")
-                    # Per-domain comments
+                        dk = "D" + crit.split(".")[0]
+                        row[f"poe1_{crit.replace('.','_')}"] = p1_domains.get(dk, {}).get("scores", {}).get(crit, "")
                     for d in ["D1","D2","D3","D4","D5","D6"]:
-                        row[f"comment_{d}"] = domains.get(d, {}).get("comment", "")
-                    # Binary events
+                        row[f"p1_comment_{d}"] = p1_domains.get(d, {}).get("comment", "")
                     for ev_key in POE1_EVENTS:
-                        row[f"event_{ev_key}"] = events.get(ev_key, "")
-                    # Instrument B
-                    for i in range(1, 9):
-                        row[f"PB{i}"] = ib.get(f"PB{i}", "")
+                        row[f"p1_event_{ev_key}"] = p1_events.get(ev_key, "")
+                    # POE2 per-criterion scores + domain comments
+                    for crit in POE2_CRITERIA:
+                        dk = "D" + crit.split(".")[0]
+                        row[f"poe2_{crit.replace('.','_')}"] = p2_domains.get(dk, {}).get("scores", {}).get(crit, "")
+                    for d in ["D1","D2","D3","D4","D5","D6"]:
+                        row[f"p2_comment_{d}"] = p2_domains.get(d, {}).get("comment", "")
+                    for ev_key in POE2_EVENTS:
+                        row[f"p2_event_{ev_key}"] = p2_events.get(ev_key, "")
                     rows.append(row)
             except Exception:
                 continue
 
     output = io.StringIO()
     fieldnames = (
-        ["session_id", "expert_name", "evaluated_at", "paciente", "transtorno", "score_pct", "poe1_total_score"] +
+        ["session_id", "expert_name", "evaluated_at", "paciente", "transtorno", "score_pct",
+         "poe1_total_score", "poe2_total_score"] +
+        # POE1
         [f"poe1_{c.replace('.','_')}" for c in POE1_CRITERIA] +
-        [f"comment_D{i}" for i in range(1, 7)] +
-        [f"event_{e}" for e in POE1_EVENTS] +
-        ["pontos_fortes", "fragilidades", "recomendacao"] +
-        [f"PB{i}" for i in range(1, 9)] + ["comments_b"]
+        [f"p1_comment_D{i}" for i in range(1, 7)] +
+        [f"p1_event_{e}" for e in POE1_EVENTS] +
+        ["p1_pontos_fortes", "p1_fragilidades", "p1_recomendacao"] +
+        # POE2
+        [f"poe2_{c.replace('.','_')}" for c in POE2_CRITERIA] +
+        [f"p2_comment_D{i}" for i in range(1, 7)] +
+        [f"p2_event_{e}" for e in POE2_EVENTS] +
+        ["p2_pontos_fortes", "p2_limitacoes", "p2_riscos_confusao",
+         "p2_recomendacoes", "p2_conclusao", "p2_justificativa"]
     )
     writer = csv.DictWriter(output, fieldnames=fieldnames)
     writer.writeheader()
@@ -1913,6 +1949,117 @@ def admin_poe1_dashboard(token: str = Query(...)):
         }
 
     # Score distribution buckets
+    def bucket(score):
+        if score <= 40: return "0-40"
+        elif score <= 70: return "41-70"
+        elif score <= 85: return "71-85"
+        else: return "86-100"
+
+    distribution = {"0-40": 0, "41-70": 0, "71-85": 0, "86-100": 0}
+    for s in total_scores:
+        distribution[bucket(s)] += 1
+
+    return {
+        "total_evaluations": len(evaluations_list),
+        "mean_total_score": mean(total_scores),
+        "score_distribution": distribution,
+        "domain_summary": domain_summary,
+        "event_counts": event_counts,
+        "evaluations": evaluations_list,
+    }
+
+
+@app.get("/api/admin/poe2/dashboard")
+def admin_poe2_dashboard(token: str = Query(...)):
+    """Return consolidated POE2 statistics across all evaluations."""
+    if not verify_admin_token(token):
+        raise HTTPException(status_code=401, detail="Token inválido ou expirado")
+
+    POE2_CRITERIA_BY_DOMAIN = {
+        "D1": ["1.1","1.2","1.3","1.4","1.5"],
+        "D2": ["2.1","2.2","2.3","2.4","2.5"],
+        "D3": ["3.1","3.2","3.3","3.4","3.5"],
+        "D4": ["4.1","4.2","4.3","4.4","4.5"],
+        "D5": ["5.1","5.2","5.3","5.4","5.5"],
+        "D6": ["6.1","6.2","6.3"],
+    }
+    POE2_EVENTS = [
+        "confusao_diagnostica","induz_erro_conceitual","mistura_quadros",
+        "pistas_insuficientes","favorece_autoaprendizado","recomendavel_educacional",
+    ]
+
+    criterion_scores: dict = {}
+    domain_scores: dict = {}
+    event_counts: dict = {e: {"sim": 0, "nao": 0} for e in POE2_EVENTS}
+    total_scores: list = []
+    evaluations_list: list = []
+
+    if EVALUATIONS_DIR.exists():
+        for f in sorted(EVALUATIONS_DIR.glob("*.json")):
+            try:
+                data = json.loads(f.read_text(encoding="utf-8"))
+                evlist = data if isinstance(data, list) else [data]
+                for ev in evlist:
+                    poe2 = ev.get("poe2", {})
+                    if not poe2:
+                        continue
+                    domains = poe2.get("domains", {})
+                    events  = poe2.get("events", {})
+                    total   = poe2.get("total_score", None)
+
+                    if total is not None:
+                        total_scores.append(float(total))
+
+                    for domain_key, crits in POE2_CRITERIA_BY_DOMAIN.items():
+                        d_data = domains.get(domain_key, {})
+                        d_scores = d_data.get("scores", {})
+                        valid_scores = []
+                        for c in crits:
+                            val = d_scores.get(c)
+                            if val is not None and val != "NA":
+                                try:
+                                    v = float(val)
+                                    criterion_scores.setdefault(c, []).append(v)
+                                    valid_scores.append(v)
+                                except (ValueError, TypeError):
+                                    pass
+                        if valid_scores:
+                            domain_scores.setdefault(domain_key, []).append(
+                                sum(valid_scores) / len(valid_scores)
+                            )
+
+                    for ev_key in POE2_EVENTS:
+                        val = events.get(ev_key)
+                        if val is True or val == "sim":
+                            event_counts[ev_key]["sim"] += 1
+                        elif val is False or val == "nao":
+                            event_counts[ev_key]["nao"] += 1
+
+                    evaluations_list.append({
+                        "session_id":   ev.get("session_id"),
+                        "expert_name":  ev.get("expert_name"),
+                        "paciente":     ev.get("paciente"),
+                        "transtorno":   ev.get("transtorno"),
+                        "evaluated_at": ev.get("evaluated_at"),
+                        "total_score":  total,
+                    })
+            except Exception:
+                continue
+
+    def mean(lst):
+        return round(sum(lst) / len(lst), 2) if lst else None
+
+    domain_summary = {}
+    for dk, crits in POE2_CRITERIA_BY_DOMAIN.items():
+        domain_summary[dk] = {
+            "mean": mean(domain_scores.get(dk, [])),
+            "n": len(domain_scores.get(dk, [])),
+            "criteria": {
+                c: {"mean": mean(criterion_scores.get(c, [])), "n": len(criterion_scores.get(c, []))}
+                for c in crits
+            }
+        }
+
     def bucket(score):
         if score <= 40: return "0-40"
         elif score <= 70: return "41-70"
@@ -2143,9 +2290,11 @@ def expert_submit_evaluation(session_id: str, req: ExpertEvaluationRequest, toke
             "open":         req.poe1_open,
             "total_score":  req.poe1_total_score,
         },
-        "instrument_b": {
-            "responses": req.instrument_b,
-            "comments":  req.comments_b,
+        "poe2": {
+            "domains":      req.poe2_domains,
+            "events":       req.poe2_events,
+            "open":         req.poe2_open,
+            "total_score":  req.poe2_total_score,
         },
     }
 

@@ -1765,30 +1765,37 @@
       <div id="evalReportBox" style="font-size:13px;line-height:1.7"></div>
     </div>
 
-    <!-- POE1 — Pesquisa de Opinião de Especialistas -->
-    <div class="admin-section">
-      <h3>Pesquisa de Opinião de Especialistas — Desempenho do Modelo de IA</h3>
+    <!-- Toggle buttons -->
+    <div style="display:flex;gap:0;margin-bottom:0">
+      <button id="tabPoe1Btn" onclick="switchPoeTab('poe1')" style="flex:1;padding:13px 16px;font-size:13px;font-weight:700;border:2px solid #2563eb;border-right:1px solid #2563eb;border-radius:8px 0 0 8px;background:#2563eb;color:#fff;cursor:pointer;transition:all .2s">
+        Pesquisa de Opinião de Especialistas — Desempenho do Modelo de IA
+      </button>
+      <button id="tabPoe2Btn" onclick="switchPoeTab('poe2')" style="flex:1;padding:13px 16px;font-size:13px;font-weight:700;border:2px solid #2563eb;border-left:1px solid #2563eb;border-radius:0 8px 8px 0;background:#fff;color:#2563eb;cursor:pointer;transition:all .2s">
+        Pesquisa de opinião de especialistas sobre desempenho do modelo de IA como ferramenta de autoaprendizado criterial diagnóstico
+      </button>
+    </div>
+
+    <!-- POE1 panel -->
+    <div id="poe1Panel" class="admin-section" style="margin-top:0;border-top:none;border-radius:0 0 8px 8px">
       <div style="background:var(--bg-secondary,#f8f9fa);border-radius:8px;padding:12px 16px;margin-bottom:18px;font-size:13px;color:var(--text-secondary)">
         <strong>Escala:</strong> 1 = Muito inadequado &nbsp;|&nbsp; 2 = Inadequado &nbsp;|&nbsp; 3 = Parcialmente adequado &nbsp;|&nbsp; 4 = Adequado &nbsp;|&nbsp; 5 = Muito adequado &nbsp;|&nbsp; NA = Não aplicável
       </div>
       <div id="poe1Form"></div>
-      <!-- Score total -->
       <div style="margin-top:20px;padding:14px 18px;background:linear-gradient(135deg,#1e40af,#2563eb);border-radius:10px;color:#fff;display:flex;align-items:center;justify-content:space-between">
         <span style="font-size:15px;font-weight:700">Score Total POE1</span>
         <span id="poe1TotalScore" style="font-size:22px;font-weight:800">--</span>
       </div>
     </div>
 
-    <!-- Instrument B -->
-    <div class="admin-section">
-      <h3>Instrumento B — IA como Ferramenta de Autoaprendizado</h3>
-      <p style="font-size:13px;color:var(--text-secondary);margin-bottom:16px">
-        Escala: 1 = Discordo totalmente &nbsp;|&nbsp; 2 = Discordo &nbsp;|&nbsp; 3 = Neutro &nbsp;|&nbsp; 4 = Concordo &nbsp;|&nbsp; 5 = Concordo totalmente
-      </p>
-      <div id="instrumentB"></div>
-      <div style="margin-top:16px">
-        <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px">Comentários e observações (opcional)</label>
-        <textarea id="commentsB" rows="4" style="width:100%;padding:10px;border:1px solid var(--border,#e2e8f0);border-radius:6px;font-size:13px;resize:vertical" placeholder="Observações sobre a qualidade do feedback formativo gerado..."></textarea>
+    <!-- POE2 panel -->
+    <div id="poe2Panel" class="admin-section" style="display:none;margin-top:0;border-top:none;border-radius:0 0 8px 8px">
+      <div style="background:var(--bg-secondary,#f8f9fa);border-radius:8px;padding:12px 16px;margin-bottom:18px;font-size:13px;color:var(--text-secondary)">
+        <strong>Escala:</strong> 1 = Muito inadequado &nbsp;|&nbsp; 2 = Inadequado &nbsp;|&nbsp; 3 = Parcialmente adequado &nbsp;|&nbsp; 4 = Adequado &nbsp;|&nbsp; 5 = Muito adequado &nbsp;|&nbsp; NA = Não aplicável
+      </div>
+      <div id="poe2Form"></div>
+      <div style="margin-top:20px;padding:14px 18px;background:linear-gradient(135deg,#5b21b6,#7c3aed);border-radius:10px;color:#fff;display:flex;align-items:center;justify-content:space-between">
+        <span style="font-size:15px;font-weight:700">Score Total POE2</span>
+        <span id="poe2TotalScore" style="font-size:22px;font-weight:800">--</span>
       </div>
     </div>
 
@@ -1823,6 +1830,9 @@
     <div style="display:flex;align-items:center;gap:10px">
       <button class="btn btn-secondary" id="adminPoe1DashBtn" style="padding:6px 14px;font-size:13px">
         📊 Dashboard POE1
+      </button>
+      <button class="btn btn-secondary" id="adminPoe2DashBtn" style="padding:6px 14px;font-size:13px">
+        📊 Dashboard POE2
       </button>
       <button class="admin-logout" id="adminLogoutBtn">Sair</button>
     </div>
@@ -2045,6 +2055,52 @@
       <div id="poe1EvalsList">
         <div class="admin-empty">Carregando...</div>
       </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══ POE2 Dashboard Screen ════════════════════════════════════ -->
+<div id="poe2-dashboard-screen" class="screen">
+  <div class="admin-header">
+    <h2>Dashboard POE2 — Autoaprendizado Criterial Diagnóstico</h2>
+    <div style="display:flex;align-items:center;gap:10px">
+      <button class="btn btn-secondary" id="poe2ExportCsvBtn" style="padding:6px 14px;font-size:13px">
+        ⬇ Exportar CSV
+      </button>
+      <button class="admin-logout" id="poe2BackBtn">← Voltar</button>
+    </div>
+  </div>
+  <div class="admin-dashboard">
+
+    <div class="admin-cards">
+      <div class="admin-card">
+        <h3>Resumo Geral</h3>
+        <div class="admin-stat"><span class="label">Total de avaliações</span><span class="value" id="poe2TotalEvals">--</span></div>
+        <div class="admin-stat"><span class="label">Score médio POE2</span><span class="value" id="poe2MeanScore">--</span></div>
+      </div>
+      <div class="admin-card">
+        <h3>Distribuição de Scores</h3>
+        <div class="admin-stat"><span class="label">0 – 40% (Insuficiente)</span><span class="value" id="poe2Dist0">--</span></div>
+        <div class="admin-stat"><span class="label">41 – 70% (Parcial)</span><span class="value" id="poe2Dist41">--</span></div>
+        <div class="admin-stat"><span class="label">71 – 85% (Adequado)</span><span class="value" id="poe2Dist71">--</span></div>
+        <div class="admin-stat"><span class="label">86 – 100% (Excelente)</span><span class="value" id="poe2Dist86">--</span></div>
+      </div>
+    </div>
+
+    <div class="admin-section">
+      <h3>Médias por Domínio</h3>
+      <div id="poe2DomainTable"><div class="admin-empty">Carregando...</div></div>
+    </div>
+
+    <div class="admin-section">
+      <h3>Frequência dos Itens Críticos Binários</h3>
+      <div id="poe2EventsTable"><div class="admin-empty">Carregando...</div></div>
+    </div>
+
+    <div class="admin-section">
+      <h3>Lista de Avaliações Individuais</h3>
+      <div id="poe2EvalsList"><div class="admin-empty">Carregando...</div></div>
     </div>
 
   </div>
@@ -4117,16 +4173,65 @@ const POE1_CONFIG = {
   ]
 };
 
-const INSTRUMENT_B = [
-  { id: "PB1", text: "O feedback formativo gerado foi pedagogicamente adequado" },
-  { id: "PB2", text: "Os critérios DSM-5-TR identificados durante a entrevista foram precisos" },
-  { id: "PB3", text: "As dicas formativas foram relevantes e clinicamente corretas" },
-  { id: "PB4", text: "O score de cobertura refletiu adequadamente o desempenho do aluno" },
-  { id: "PB5", text: "A avaliação do Exame do Estado Mental foi clinicamente apropriada" },
-  { id: "PB6", text: "A avaliação qualitativa das 6 dimensões da entrevista foi precisa" },
-  { id: "PB7", text: "A ferramenta pode identificar lacunas relevantes na formação clínica do aluno" },
-  { id: "PB8", text: "A ferramenta tem potencial para uso no ensino de Psiquiatria" },
-];
+// POE2 — Pesquisa de Opinião sobre Autoaprendizado Criterial Diagnóstico
+const POE2_CONFIG = {
+  domains: [
+    { id: "D1", label: "Domínio 1. Aderência ao ensino criterial DSM-5-TR", maxPts: 25, criteria: [
+      { id: "1.1", text: "Clareza dos elementos nucleares do quadro", guide: "A interação torna identificáveis os elementos centrais do transtorno-alvo segundo o DSM-5-TR?" },
+      { id: "1.2", text: "Relevância dos achados para raciocínio criterial", guide: "As informações fornecidas são clinicamente relevantes para análise criterial, e não apenas narrativas periféricas?" },
+      { id: "1.3", text: "Articulação entre sintomas, duração, contexto e prejuízo", guide: "A sessão oferece elementos suficientes para que o estudante relacione sintomas, duração, contexto e impacto funcional de modo criterial?" },
+      { id: "1.4", text: "Potencial para identificação de critérios essenciais", guide: "A interação favorece que o estudante reconheça critérios diagnósticos essenciais, em vez de apenas adivinhar o diagnóstico?" },
+      { id: "1.5", text: "Compatibilidade com ensino baseado em critérios", guide: "A sessão é adequada para ensino de raciocínio diagnóstico estruturado com base em critérios, e não apenas em impressão global?" },
+    ]},
+    { id: "D2", label: "Domínio 2. Diferenciação entre transtornos de ansiedade", maxPts: 25, criteria: [
+      { id: "2.1", text: "Potencial de distinção entre quadros próximos", guide: "A sessão permite distinguir o transtorno-alvo de outros transtornos de ansiedade clinicamente próximos?" },
+      { id: "2.2", text: "Presença de pistas diferenciais relevantes", guide: "A interação contém pistas que ajudam a separar o quadro principal de diagnósticos diferenciais pertinentes?" },
+      { id: "2.3", text: "Ausência de sobreposição confusora excessiva", guide: "A sessão evita mistura excessiva ou mal delimitada de características que induzam confusão diagnóstica desnecessária?" },
+      { id: "2.4", text: "Delimitação adequada do quadro-alvo", guide: "O caso apresenta contornos suficientemente definidos para que o estudante exercite diferenciação diagnóstica plausível?" },
+      { id: "2.5", text: "Valor para treino de diferenciação criterial", guide: "A interação é útil especificamente para o treino de distinção entre quadros do espectro ansioso?" },
+    ]},
+    { id: "D3", label: "Domínio 3. Utilidade para autoaprendizado", maxPts: 25, criteria: [
+      { id: "3.1", text: "Estímulo à investigação ativa", guide: "A sessão favorece postura ativa do estudante, exigindo formulação de perguntas e organização do raciocínio?" },
+      { id: "3.2", text: "Adequação ao uso autônomo", guide: "A interação é apropriada para uso livre e autônomo, sem depender fortemente de mediação docente imediata?" },
+      { id: "3.3", text: "Desafio cognitivo em nível adequado", guide: "A sessão apresenta nível de dificuldade compatível com o treinamento: nem trivial, nem excessivamente obscura?" },
+      { id: "3.4", text: "Potencial de aprendizagem reflexiva", guide: "A interação convida o estudante a refletir sobre critérios, hipóteses e diferenciais, e não apenas a buscar uma resposta rápida?" },
+      { id: "3.5", text: "Utilidade global para estudo independente", guide: "Esta sessão seria útil como instrumento de autoaprendizado em transtornos de ansiedade?" },
+    ]},
+    { id: "D4", label: "Domínio 4. Prevenção de confusões diagnósticas", maxPts: 25, criteria: [
+      { id: "4.1", text: "Ausência de pistas enganosas indevidas", guide: "A sessão evita inserir elementos que levem a erro diagnóstico por formulação imprecisa ou artificial?" },
+      { id: "4.2", text: "Coerência conceitual com o transtorno-alvo", guide: "A interação evita transmitir, de forma implícita, conceitos equivocados sobre o transtorno simulado?" },
+      { id: "4.3", text: "Controle de ambiguidade improdutiva", guide: "Quando há ambiguidade, ela é didaticamente útil e plausível, e não simplesmente confusa?" },
+      { id: "4.4", text: "Ausência de indução diagnóstica inadequada", guide: "A sessão evita induzir o estudante a diagnóstico incorreto por inconsistência, exagero ou omissão distorcida?" },
+      { id: "4.5", text: "Segurança didático-conceitual", guide: "A interação é segura do ponto de vista pedagógico, sem promover compreensão conceitual distorcida do DSM-5-TR?" },
+    ]},
+    { id: "D5", label: "Domínio 5. Suficiência de pistas para raciocínio", maxPts: 25, criteria: [
+      { id: "5.1", text: "Disponibilidade de informações clinicamente úteis", guide: "A sessão oferece informações suficientes para que o estudante formule hipótese diagnóstica fundamentada?" },
+      { id: "5.2", text: "Recuperabilidade das pistas mediante boa investigação", guide: "Quando o estudante pergunta adequadamente, a interação oferece pistas relevantes e recuperáveis?" },
+      { id: "5.3", text: "Equilíbrio entre ocultação e revelação", guide: "A sessão não entrega o diagnóstico de forma óbvia demais, mas também não oculta em excesso informações essenciais?" },
+      { id: "5.4", text: "Potencial para sustentação de justificativa diagnóstica", guide: "A interação oferece base suficiente para que o estudante justifique seu raciocínio com critérios e diferenciais?" },
+      { id: "5.5", text: "Suficiência global para exercício criterial", guide: "No conjunto, a sessão fornece material suficiente para o exercício do reconhecimento e da diferenciação criterial diagnóstica?" },
+    ]},
+    { id: "D6", label: "Domínio 6. Julgamento global de adequação didático-criterial", maxPts: 15, criteria: [
+      { id: "6.1", text: "Adequação global ao objetivo do PsiqMentor", guide: "A sessão está alinhada ao objetivo de apoiar o autoaprendizado do reconhecimento e da diferenciação criterial diagnóstica segundo o DSM-5-TR?" },
+      { id: "6.2", text: "Potencial de uso em contexto formativo", guide: "A sessão seria aceitável como atividade formativa de apoio ao estudante de Medicina ou área afim?" },
+      { id: "6.3", text: "Valor global da sessão como recurso educacional", guide: "Considerando todos os aspectos, qual a qualidade global desta sessão como recurso de autoaprendizado criterial?" },
+    ]},
+  ],
+  events: [
+    { id: "confusao_diagnostica",    text: "A sessão contém confusão diagnóstica evitável?" },
+    { id: "induz_erro_conceitual",   text: "A sessão induz erro conceitual relevante sobre critérios diagnósticos?" },
+    { id: "mistura_quadros",         text: "A sessão mistura, de modo improdutivo, características de quadros distintos?" },
+    { id: "pistas_insuficientes",    text: "A sessão oferece pistas insuficientes para justificar diagnóstico e diferenciais?" },
+    { id: "favorece_autoaprendizado",text: "A sessão favorece autoaprendizado criterial de modo aceitável?" },
+    { id: "recomendavel_educacional",text: "A sessão é recomendável para uso educacional em sua forma atual?" },
+  ],
+  conclusaoOpts: [
+    { id: "aprovar_sem_ajustes",         label: "Aprovar sem ajustes" },
+    { id: "aprovar_pequenos_ajustes",    label: "Aprovar com pequenos ajustes" },
+    { id: "aprovar_ajustes_importantes", label: "Aprovar com ajustes importantes" },
+    { id: "nao_aprovar",                 label: "Não aprovar na forma atual" },
+  ],
+};
 
 const LIKERT_LABELS = ["", "Discordo totalmente", "Discordo", "Neutro", "Concordo", "Concordo totalmente"];
 
@@ -4399,6 +4504,199 @@ function renderInstrument(containerId, items, prefix, existingResponses) {
   el.innerHTML = html;
 }
 
+// ── Tab switcher ────────────────────────────────────────────────────────────
+function switchPoeTab(tab) {
+  const poe1Panel = document.getElementById("poe1Panel");
+  const poe2Panel = document.getElementById("poe2Panel");
+  const btn1 = document.getElementById("tabPoe1Btn");
+  const btn2 = document.getElementById("tabPoe2Btn");
+  if (tab === "poe1") {
+    poe1Panel.style.display = "";
+    poe2Panel.style.display = "none";
+    btn1.style.background = "#2563eb"; btn1.style.color = "#fff";
+    btn2.style.background = "#fff";    btn2.style.color = "#2563eb";
+  } else {
+    poe1Panel.style.display = "none";
+    poe2Panel.style.display = "";
+    btn2.style.background = "#2563eb"; btn2.style.color = "#fff";
+    btn1.style.background = "#fff";    btn1.style.color = "#2563eb";
+  }
+}
+
+// ── POE2 rendering ──────────────────────────────────────────────────────────
+function updatePOE2Score() {
+  let points = 0;
+  POE2_CONFIG.domains.forEach(domain => {
+    domain.criteria.forEach(c => {
+      const sel = document.querySelector(`input[name="poe2_${c.id}"]:checked`);
+      if (sel && sel.value !== "NA") points += parseInt(sel.value);
+    });
+  });
+  const score = points > 0 ? ((points / 140) * 100).toFixed(1) : "--";
+  const el = document.getElementById("poe2TotalScore");
+  if (el) el.textContent = score !== "--" ? `${score}%` : "--";
+}
+
+function updatePOE2DomainSubtotal(domainId) {
+  const domain = POE2_CONFIG.domains.find(d => d.id === domainId);
+  if (!domain) return;
+  let pts = 0, count = 0;
+  domain.criteria.forEach(c => {
+    const sel = document.querySelector(`input[name="poe2_${c.id}"]:checked`);
+    if (sel && sel.value !== "NA") { pts += parseInt(sel.value); count++; }
+  });
+  const el = document.getElementById(`poe2_subtotal_${domainId}`);
+  if (el) el.textContent = count > 0 ? `Subtotal: ${pts}/${domain.maxPts}` : "";
+}
+
+function renderPOE2Form(existingData) {
+  const el = document.getElementById("poe2Form");
+  if (!el) return;
+  const existingDomains = existingData?.domains || {};
+  const existingEvents  = existingData?.events  || {};
+  const existingOpen    = existingData?.open    || {};
+  let html = "";
+
+  POE2_CONFIG.domains.forEach(domain => {
+    const dData   = existingDomains[domain.id] || {};
+    const dScores = dData.scores || {};
+    const dComment= dData.comment || "";
+    html += `<div style="margin-bottom:24px;border:1px solid var(--border,#e2e8f0);border-radius:10px;overflow:hidden">
+      <div style="background:linear-gradient(135deg,#5b21b6,#7c3aed);padding:12px 16px;color:#fff">
+        <span style="font-weight:700;font-size:14px">${domain.label}</span>
+        <span id="poe2_subtotal_${domain.id}" style="float:right;font-size:13px;opacity:0.9"></span>
+      </div>
+      <div style="padding:14px 16px">`;
+
+    domain.criteria.forEach(c => {
+      html += `<div style="margin-bottom:14px;padding:10px 12px;background:var(--bg-secondary,#f8f9fa);border-radius:6px">
+        <div style="font-size:13px;font-weight:600;margin-bottom:4px">${c.id} — ${c.text}</div>
+        <div style="font-size:11px;color:var(--text-secondary);margin-bottom:8px;font-style:italic">${c.guide}</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">`;
+      for (let v = 1; v <= 5; v++) {
+        const checked = dScores[c.id] == v ? "checked" : "";
+        const chStyle = checked ? "background:#ede9fe;border-color:#7c3aed;font-weight:700" : "";
+        html += `<label style="display:flex;align-items:center;gap:4px;font-size:11px;cursor:pointer;padding:4px 8px;border:1px solid var(--border,#e2e8f0);border-radius:4px;${chStyle}">
+          <input type="radio" name="poe2_${c.id}" value="${v}" ${checked} onchange="updatePOE2Score();updatePOE2DomainSubtotal('${domain.id}')" style="margin:0"> ${v}
+        </label>`;
+      }
+      const naChecked = dScores[c.id] === "NA" ? "checked" : "";
+      const naStyle = naChecked ? "background:#fef9c3;border-color:#ca8a04;font-weight:700" : "";
+      html += `<label style="display:flex;align-items:center;gap:4px;font-size:11px;cursor:pointer;padding:4px 8px;border:1px solid var(--border,#e2e8f0);border-radius:4px;${naStyle}">
+        <input type="radio" name="poe2_${c.id}" value="NA" ${naChecked} onchange="updatePOE2Score();updatePOE2DomainSubtotal('${domain.id}')" style="margin:0"> NA
+      </label>`;
+      html += `</div></div>`;
+    });
+
+    html += `<div style="margin-top:10px">
+      <label style="font-size:12px;font-weight:600;display:block;margin-bottom:4px;color:var(--text-secondary)">Comentário do domínio (opcional)</label>
+      <textarea id="poe2_comment_${domain.id}" rows="2" style="width:100%;padding:8px 10px;border:1px solid var(--border,#e2e8f0);border-radius:6px;font-size:12px;resize:vertical" placeholder="Observações sobre este domínio...">${dComment}</textarea>
+    </div></div></div>`;
+  });
+
+  // Critical events
+  html += `<div style="margin-bottom:24px;border:1px solid var(--border,#e2e8f0);border-radius:10px;overflow:hidden">
+    <div style="background:#7c3aed;padding:12px 16px;color:#fff">
+      <span style="font-weight:700;font-size:14px">Itens Críticos Binários</span>
+    </div>
+    <div style="padding:14px 16px">`;
+  POE2_CONFIG.events.forEach(ev => {
+    const simChecked = existingEvents[ev.id] === true || existingEvents[ev.id] === "sim" ? "checked" : "";
+    const naoChecked = existingEvents[ev.id] === false || existingEvents[ev.id] === "nao" ? "checked" : "";
+    html += `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border,#e2e8f0)">
+      <span style="font-size:13px;flex:1">${ev.text}</span>
+      <div style="display:flex;gap:12px;flex-shrink:0;margin-left:12px">
+        <label style="display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer;font-weight:${simChecked ? '700' : '400'}">
+          <input type="radio" name="poe2_event_${ev.id}" value="sim" ${simChecked} style="margin:0"> Sim
+        </label>
+        <label style="display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer;font-weight:${naoChecked ? '700' : '400'}">
+          <input type="radio" name="poe2_event_${ev.id}" value="nao" ${naoChecked} style="margin:0"> Não
+        </label>
+      </div>
+    </div>`;
+  });
+  html += `</div></div>`;
+
+  // Open text + conclusão
+  html += `<div style="margin-bottom:24px;border:1px solid var(--border,#e2e8f0);border-radius:10px;overflow:hidden">
+    <div style="background:#065f46;padding:12px 16px;color:#fff">
+      <span style="font-weight:700;font-size:14px">Opinião do Especialista</span>
+    </div>
+    <div style="padding:14px 16px;display:flex;flex-direction:column;gap:14px">
+      <div>
+        <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px">9.1 Pontos fortes didático-criteriais da sessão</label>
+        <textarea id="poe2_pontos_fortes" rows="3" style="width:100%;padding:10px;border:1px solid var(--border,#e2e8f0);border-radius:6px;font-size:13px;resize:vertical" placeholder="Descreva os pontos fortes didático-criteriais...">${existingOpen.pontos_fortes || ""}</textarea>
+      </div>
+      <div>
+        <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px">9.2 Principais limitações da sessão</label>
+        <textarea id="poe2_limitacoes" rows="3" style="width:100%;padding:10px;border:1px solid var(--border,#e2e8f0);border-radius:6px;font-size:13px;resize:vertical" placeholder="Descreva as principais limitações...">${existingOpen.limitacoes || ""}</textarea>
+      </div>
+      <div>
+        <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px">9.3 Possíveis riscos de confusão diagnóstica</label>
+        <textarea id="poe2_riscos_confusao" rows="3" style="width:100%;padding:10px;border:1px solid var(--border,#e2e8f0);border-radius:6px;font-size:13px;resize:vertical" placeholder="Descreva possíveis riscos de confusão diagnóstica...">${existingOpen.riscos_confusao || ""}</textarea>
+      </div>
+      <div>
+        <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px">9.4 Recomendações de melhoria</label>
+        <textarea id="poe2_recomendacoes" rows="3" style="width:100%;padding:10px;border:1px solid var(--border,#e2e8f0);border-radius:6px;font-size:13px;resize:vertical" placeholder="Suas recomendações de melhoria...">${existingOpen.recomendacoes || ""}</textarea>
+      </div>
+      <div>
+        <label style="font-size:13px;font-weight:600;display:block;margin-bottom:8px">9.5 Conclusão</label>
+        <div style="display:flex;flex-direction:column;gap:8px">`;
+  POE2_CONFIG.conclusaoOpts.forEach(opt => {
+    const checked = existingOpen.conclusao === opt.id ? "checked" : "";
+    html += `<label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;padding:8px 12px;border:1px solid var(--border,#e2e8f0);border-radius:6px;${checked ? 'background:#ede9fe;border-color:#7c3aed;font-weight:700' : ''}">
+      <input type="radio" name="poe2_conclusao" value="${opt.id}" ${checked} style="margin:0"> ${opt.label}
+    </label>`;
+  });
+  html += `</div>
+      </div>
+      <div>
+        <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px">Justificativa</label>
+        <textarea id="poe2_justificativa" rows="3" style="width:100%;padding:10px;border:1px solid var(--border,#e2e8f0);border-radius:6px;font-size:13px;resize:vertical" placeholder="Justifique sua conclusão...">${existingOpen.justificativa || ""}</textarea>
+      </div>
+    </div>
+  </div>`;
+
+  el.innerHTML = html;
+  POE2_CONFIG.domains.forEach(d => updatePOE2DomainSubtotal(d.id));
+  updatePOE2Score();
+}
+
+function collectPOE2Data() {
+  const domains = {};
+  for (const domain of POE2_CONFIG.domains) {
+    const scores = {};
+    for (const c of domain.criteria) {
+      const sel = document.querySelector(`input[name="poe2_${c.id}"]:checked`);
+      if (!sel) { alert(`POE2 — Por favor, responda todos os critérios (${c.id} — ${c.text} não preenchido).`); return null; }
+      scores[c.id] = sel.value === "NA" ? "NA" : parseInt(sel.value);
+    }
+    const commentEl = document.getElementById(`poe2_comment_${domain.id}`);
+    domains[domain.id] = { scores, comment: commentEl ? commentEl.value : "" };
+  }
+  const events = {};
+  for (const ev of POE2_CONFIG.events) {
+    const sel = document.querySelector(`input[name="poe2_event_${ev.id}"]:checked`);
+    if (!sel) { alert(`POE2 — Por favor, responda todos os itens críticos ("${ev.text}" não preenchido).`); return null; }
+    events[ev.id] = sel.value === "sim";
+  }
+  const conclusaoSel = document.querySelector(`input[name="poe2_conclusao"]:checked`);
+  const open = {
+    pontos_fortes:  document.getElementById("poe2_pontos_fortes")?.value || "",
+    limitacoes:     document.getElementById("poe2_limitacoes")?.value || "",
+    riscos_confusao:document.getElementById("poe2_riscos_confusao")?.value || "",
+    recomendacoes:  document.getElementById("poe2_recomendacoes")?.value || "",
+    conclusao:      conclusaoSel ? conclusaoSel.value : "",
+    justificativa:  document.getElementById("poe2_justificativa")?.value || "",
+  };
+  let points = 0;
+  Object.values(domains).forEach(d => {
+    Object.values(d.scores).forEach(v => { if (v !== "NA") points += v; });
+  });
+  const total_score = parseFloat(((points / 140) * 100).toFixed(2));
+  return { domains, events, open, total_score };
+}
+
 async function openTranscript(sessionId) {
   currentTranscriptId = sessionId;
   document.getElementById("evalSessionId").textContent = sessionId.slice(0, 8);
@@ -4459,12 +4757,11 @@ async function openTranscript(sessionId) {
     }
     document.getElementById("evalReportBox").innerHTML = rHtml;
 
-    // POE1 form — pre-fill if already evaluated
+    // POE1 + POE2 forms — pre-fill if already evaluated
     renderPOE1Form(ev?.poe1 || null);
-    // Instrument B — pre-fill if already evaluated
-    const ibResp = ev?.instrument_b?.responses || null;
-    renderInstrument("instrumentB", INSTRUMENT_B, "PB", ibResp);
-    if (ev?.instrument_b?.comments) document.getElementById("commentsB").value = ev.instrument_b.comments;
+    renderPOE2Form(ev?.poe2 || null);
+    // Start on POE1 tab
+    switchPoeTab("poe1");
 
     document.getElementById("evalSubmitMsg").textContent = ev ? "✔ Você já avaliou esta sessão. Pode atualizar abaixo." : "";
     document.getElementById("evalSubmitMsg").style.color = ev ? "#16a34a" : "";
@@ -4478,18 +4775,8 @@ async function openTranscript(sessionId) {
 evalSubmitBtn.addEventListener("click", async () => {
   // Collect POE1 data
   const poe1Data = collectPOE1Data(); if (!poe1Data) return;
-
-  // Collect Instrument B
-  const collectResponses = (items) => {
-    const resp = {};
-    for (const item of items) {
-      const val = document.querySelector(`input[name="${item.id}"]:checked`);
-      if (!val) { alert(`Por favor, responda todos os itens (${item.id} não preenchido).`); return null; }
-      resp[item.id] = parseInt(val.value);
-    }
-    return resp;
-  };
-  const ib = collectResponses(INSTRUMENT_B); if (!ib) return;
+  // Collect POE2 data
+  const poe2Data = collectPOE2Data(); if (!poe2Data) return;
 
   evalSubmitBtn.disabled = true;
   evalSubmitBtn.textContent = "Salvando...";
@@ -4502,8 +4789,10 @@ evalSubmitBtn.addEventListener("click", async () => {
         poe1_events:       poe1Data.events,
         poe1_open:         poe1Data.open,
         poe1_total_score:  poe1Data.total_score,
-        instrument_b: ib,
-        comments_b: document.getElementById("commentsB").value,
+        poe2_domains:      poe2Data.domains,
+        poe2_events:       poe2Data.events,
+        poe2_open:         poe2Data.open,
+        poe2_total_score:  poe2Data.total_score,
       }),
     });
     if (res.ok) {
@@ -4763,6 +5052,126 @@ async function loadPoe1Dashboard() {
     }
   } catch (e) {
     ["poe1DomainTable","poe1EventsTable","poe1EvalsList"].forEach(id => {
+      document.getElementById(id).innerHTML = '<div class="admin-empty">Erro de conexão.</div>';
+    });
+  }
+}
+
+// ─── Admin: POE2 Dashboard ───────────────────────────────────────────────────
+const poe2DashboardScreen = document.getElementById("poe2-dashboard-screen");
+allScreens.push(poe2DashboardScreen);
+
+const POE2_DOMAIN_LABELS = {
+  D1: "D1. Aderência ao ensino criterial DSM-5-TR",
+  D2: "D2. Diferenciação entre transtornos de ansiedade",
+  D3: "D3. Utilidade para autoaprendizado",
+  D4: "D4. Prevenção de confusões diagnósticas",
+  D5: "D5. Suficiência de pistas para raciocínio",
+  D6: "D6. Julgamento global de adequação didático-criterial",
+};
+const POE2_EVENT_LABELS = {
+  confusao_diagnostica:    "A sessão contém confusão diagnóstica evitável",
+  induz_erro_conceitual:   "A sessão induz erro conceitual relevante",
+  mistura_quadros:         "A sessão mistura quadros de modo improdutivo",
+  pistas_insuficientes:    "A sessão oferece pistas insuficientes",
+  favorece_autoaprendizado:"A sessão favorece autoaprendizado criterial",
+  recomendavel_educacional:"A sessão é recomendável para uso educacional",
+};
+
+document.getElementById("adminPoe2DashBtn").addEventListener("click", () => {
+  showScreen(poe2DashboardScreen);
+  loadPoe2Dashboard();
+});
+document.getElementById("poe2BackBtn").addEventListener("click", () => showScreen(adminScreen));
+document.getElementById("poe2ExportCsvBtn").addEventListener("click", () => {
+  window.open(`${API}/api/admin/expert/evaluations/export?token=${adminToken}`, "_blank");
+});
+
+async function loadPoe2Dashboard() {
+  ["poe2DomainTable","poe2EventsTable","poe2EvalsList"].forEach(id => {
+    document.getElementById(id).innerHTML = '<div class="admin-empty">Carregando...</div>';
+  });
+  try {
+    const res = await fetch(`${API}/api/admin/poe2/dashboard?token=${adminToken}`);
+    if (!res.ok) { alert("Erro ao carregar dashboard POE2."); return; }
+    const d = await res.json();
+
+    document.getElementById("poe2TotalEvals").textContent = d.total_evaluations ?? "--";
+    document.getElementById("poe2MeanScore").textContent  = d.mean_total_score != null ? `${d.mean_total_score}%` : "--";
+    const dist = d.score_distribution || {};
+    document.getElementById("poe2Dist0").textContent  = dist["0-40"]   ?? 0;
+    document.getElementById("poe2Dist41").textContent = dist["41-70"]  ?? 0;
+    document.getElementById("poe2Dist71").textContent = dist["71-85"]  ?? 0;
+    document.getElementById("poe2Dist86").textContent = dist["86-100"] ?? 0;
+
+    // Domain table
+    const domains = d.domain_summary || {};
+    let domHtml = '<div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>Domínio</th><th>Média</th><th>N</th>';
+    POE2_CONFIG.domains.forEach(dom => dom.criteria.forEach(c => {
+      domHtml += `<th style="font-size:11px">${c.id}</th>`;
+    }));
+    domHtml += '</tr></thead><tbody>';
+    POE2_CONFIG.domains.forEach(dom => {
+      const dd = domains[dom.id] || {};
+      const meanVal = dd.mean != null ? dd.mean.toFixed(2) : "--";
+      const color = dd.mean == null ? "" : dd.mean >= 4 ? "#16a34a" : dd.mean >= 3 ? "#ca8a04" : "#dc2626";
+      domHtml += `<tr>
+        <td style="font-size:12px">${POE2_DOMAIN_LABELS[dom.id] || dom.id}</td>
+        <td style="font-weight:700;color:${color}">${meanVal}</td>
+        <td style="text-align:center">${dd.n ?? 0}</td>`;
+      dom.criteria.forEach(c => {
+        const cv = dd.criteria?.[c.id];
+        const cm = cv?.mean != null ? cv.mean.toFixed(2) : "--";
+        const cc = cv?.mean == null ? "" : cv.mean >= 4 ? "#16a34a" : cv.mean >= 3 ? "#ca8a04" : "#dc2626";
+        domHtml += `<td style="text-align:center;font-weight:600;font-size:12px;color:${cc}">${cm}</td>`;
+      });
+      domHtml += '</tr>';
+    });
+    domHtml += '</tbody></table></div>';
+    document.getElementById("poe2DomainTable").innerHTML = domHtml;
+
+    // Events table
+    const events = d.event_counts || {};
+    let evHtml = '<div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>Item Crítico</th><th style="text-align:center">Sim</th><th style="text-align:center">Não</th><th style="text-align:center">% Sim</th></tr></thead><tbody>';
+    Object.entries(POE2_EVENT_LABELS).forEach(([key, label]) => {
+      const ev = events[key] || { sim: 0, nao: 0 };
+      const total = ev.sim + ev.nao;
+      const pct = total > 0 ? ((ev.sim / total) * 100).toFixed(1) : "--";
+      const pctColor = pct === "--" ? "" : parseFloat(pct) > 30 ? "#dc2626" : "#16a34a";
+      evHtml += `<tr>
+        <td style="font-size:13px">${label}</td>
+        <td style="text-align:center;font-weight:700;color:#dc2626">${ev.sim}</td>
+        <td style="text-align:center;font-weight:700;color:#16a34a">${ev.nao}</td>
+        <td style="text-align:center;font-weight:700;color:${pctColor}">${pct !== "--" ? pct + "%" : "--"}</td>
+      </tr>`;
+    });
+    evHtml += '</tbody></table></div>';
+    document.getElementById("poe2EventsTable").innerHTML = evHtml;
+
+    // Individual evaluations
+    const evals = d.evaluations || [];
+    if (evals.length === 0) {
+      document.getElementById("poe2EvalsList").innerHTML = '<div class="admin-empty">Nenhuma avaliação POE2 registrada ainda.</div>';
+    } else {
+      let listHtml = '<div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>Especialista</th><th>Data</th><th>ID Sessão</th><th>Transtorno</th><th>Score Aluno</th><th style="text-align:center">Score POE2</th></tr></thead><tbody>';
+      evals.forEach(ev => {
+        const ts = ev.evaluated_at ? new Date(ev.evaluated_at).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : "--";
+        const poe2Score = ev.total_score != null ? `${ev.total_score.toFixed(1)}%` : "--";
+        const scoreColor = ev.total_score == null ? "" : ev.total_score >= 86 ? "#16a34a" : ev.total_score >= 71 ? "#2563eb" : ev.total_score >= 41 ? "#ca8a04" : "#dc2626";
+        listHtml += `<tr>
+          <td style="font-weight:600">${ev.expert_name || "--"}</td>
+          <td>${ts}</td>
+          <td style="font-family:monospace;font-size:12px">${(ev.session_id || "").slice(0,8)}</td>
+          <td>${ev.transtorno || "--"}</td>
+          <td style="text-align:center">${ev.score_pct != null ? ev.score_pct + "%" : "--"}</td>
+          <td style="text-align:center;font-weight:700;color:${scoreColor}">${poe2Score}</td>
+        </tr>`;
+      });
+      listHtml += '</tbody></table></div>';
+      document.getElementById("poe2EvalsList").innerHTML = listHtml;
+    }
+  } catch (e) {
+    ["poe2DomainTable","poe2EventsTable","poe2EvalsList"].forEach(id => {
       document.getElementById(id).innerHTML = '<div class="admin-empty">Erro de conexão.</div>';
     });
   }
