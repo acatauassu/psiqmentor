@@ -4056,8 +4056,15 @@ let currentTranscriptId = null;
       document.getElementById("expertName").textContent = data.name;
       showScreen(expertScreen);
       loadExpertTranscripts();
+    } else {
+      // Token inválido ou expirado — limpa URL e mostra aviso
+      history.replaceState({}, "", window.location.pathname);
+      alert("⚠️ Link de especialista inválido ou expirado.\n\nSolicite um novo link ao administrador do PsiqMentor.");
     }
-  } catch (e) { /* silent */ }
+  } catch (e) {
+    history.replaceState({}, "", window.location.pathname);
+    alert("⚠️ Não foi possível verificar seu acesso. Verifique sua conexão e tente novamente.");
+  }
 })();
 
 expertLink.addEventListener("click", () => {
