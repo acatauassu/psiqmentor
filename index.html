@@ -2588,7 +2588,7 @@ const reportBackBtn   = document.getElementById("reportBackBtn");
 
 // ─── Screen Navigation ──────────────────────────────────────────
 let surveyDone = false;
-const allScreens = [welcomeScreen, chatScreen, eemScreen, postScreen, thankYouScreen, surveyScreen, reportScreen, adminLoginScreen, adminScreen, expertScreen, expertTranscriptScreen];
+const allScreens = [welcomeScreen, chatScreen, eemScreen, postScreen, thankYouScreen, surveyScreen, reportScreen, adminLoginScreen, adminScreen];
 
 function showScreen(screen) {
   allScreens.forEach(s => s.classList.remove("active"));
@@ -4034,6 +4034,8 @@ const LIKERT_LABELS = ["", "Discordo totalmente", "Discordo", "Neutro", "Concord
 
 const expertScreen         = document.getElementById("expert-screen");
 const expertTranscriptScreen = document.getElementById("expert-transcript-screen");
+// Registra as telas de especialista no array global (definição adiada — const não sofre hoisting)
+allScreens.push(expertScreen, expertTranscriptScreen);
 const expertLink           = document.getElementById("expertLink");
 const expertLogoutBtn      = document.getElementById("expertLogoutBtn");
 const evalBackBtn          = document.getElementById("evalBackBtn");
