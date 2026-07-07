@@ -1698,15 +1698,17 @@ def admin_list_experts(token: str = Query(...)):
         raise HTTPException(status_code=401, detail="Token inválido ou expirado")
 
     experts = _load_experts()
-    # Enrich with evaluation counts from disk
+    # Enrich with evaluation counts from disk (each file holds a LIST of evaluations)
     for e in experts:
         count = 0
         if EVALUATIONS_DIR.exists():
             for f in EVALUATIONS_DIR.glob("*.json"):
                 try:
-                    ev = json.loads(f.read_text(encoding="utf-8"))
-                    if ev.get("expert_token") == e["token"]:
-                        count += 1
+                    data = json.loads(f.read_text(encoding="utf-8"))
+                    evlist = data if isinstance(data, list) else [data]
+                    for ev in evlist:
+                        if ev.get("expert_token") == e["token"]:
+                            count += 1
                 except Exception:
                     pass
         e["evaluations_count"] = count
@@ -1723,15 +1725,17 @@ def admin_list_evaluations(token: str = Query(...)):
     if EVALUATIONS_DIR.exists():
         for f in sorted(EVALUATIONS_DIR.glob("*.json")):
             try:
-                ev = json.loads(f.read_text(encoding="utf-8"))
-                results.append({
-                    "session_id":   ev.get("session_id"),
-                    "expert_name":  ev.get("expert_name"),
-                    "evaluated_at": ev.get("evaluated_at"),
-                    "paciente":     ev.get("paciente"),
-                    "transtorno":   ev.get("transtorno"),
-                    "score_pct":    ev.get("score_pct"),
-                })
+                data = json.loads(f.read_text(encoding="utf-8"))
+                evlist = data if isinstance(data, list) else [data]
+                for ev in evlist:
+                    results.append({
+                        "session_id":   ev.get("session_id"),
+                        "expert_name":  ev.get("expert_name"),
+                        "evaluated_at": ev.get("evaluated_at"),
+                        "paciente":     ev.get("paciente"),
+                        "transtorno":   ev.get("transtorno"),
+                        "score_pct":    ev.get("score_pct"),
+                    })
             except Exception:
                 continue
     return {"total": len(results), "evaluations": results}
@@ -2098,14 +2102,16 @@ def expert_list_transcripts(token: str = Query(...)):
     if not info:
         raise HTTPException(status_code=401, detail="Acesso não autorizado")
 
-    # Load already-evaluated session IDs by this expert
+    # Load already-evaluated session IDs by this expert (each file holds a LIST)
     evaluated_ids = set()
     if EVALUATIONS_DIR.exists():
         for f in EVALUATIONS_DIR.glob("*.json"):
             try:
-                ev = json.loads(f.read_text(encoding="utf-8"))
-                if ev.get("expert_token") == token:
-                    evaluated_ids.add(ev.get("session_id"))
+                data = json.loads(f.read_text(encoding="utf-8"))
+                evlist = data if isinstance(data, list) else [data]
+                for ev in evlist:
+                    if ev.get("expert_token") == token:
+                        evaluated_ids.add(ev.get("session_id"))
             except Exception:
                 pass
 

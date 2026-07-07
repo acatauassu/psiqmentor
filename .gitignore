@@ -1,1 +1,6 @@
 __pycache__/
+.venv/
+data/interactions/
+.DS_Store
+data/expert_evaluations/
+data/experts.json
